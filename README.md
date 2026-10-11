@@ -24,6 +24,28 @@ The application discovers backend options from the rclone installation, so the
 remote form is not limited to S3. S3-compatible providers such as Garage,
 Cloudflare R2, AWS, MinIO, and Wasabi are the primary use case.
 
+## Screenshots
+
+### Dashboard
+
+![Dashboard](docs/screenshots/dashboard.png)
+
+### Transfer Console
+
+![Transfer Console](docs/screenshots/transfers.png)
+
+### Scheduled Jobs
+
+![Scheduled jobs](docs/screenshots/jobs.png)
+
+### Remote Configuration
+
+![Remote configuration](docs/screenshots/remotes.png)
+
+### Restore
+
+![Restore workflow](docs/screenshots/restore.png)
+
 ## How backups work
 
 A backup job syncs a source remote to a destination `latest/` path. Changed or
