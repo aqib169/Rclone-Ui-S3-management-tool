@@ -1,0 +1,91 @@
+<div class="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+  <table class="data-table min-w-[760px]">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Source → Destination</th>
+        <th>Schedule</th>
+        <th>Last run</th>
+        <th>Enabled</th>
+        <th class="!text-right">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in items %}
+      {% set job = item.job %}{% set last = item.last_run %}
+      <tr>
+        <td class="font-medium">
+          <a href="/jobs/{{ job.id }}" class="link">{{ job.name }}</a>
+        </td>
+        <td class="text-ink-muted">
+          {{ job.source_remote | target(job.source_bucket, job.source_path) }}
+          <span class="text-ink-faint mx-1">→</span>
+          {{ job.dest_remote | target(job.dest_bucket, job.dest_path) }}
+        </td>
+        <td>
+          {% if job.schedule %}
+          <code>{{ job.schedule }}</code>
+          {% else %}
+          <span class="badge badge-neutral">manual only</span>
+          {% endif %}
+        </td>
+        <td class="whitespace-nowrap">
+          {% if last %}
+            {% if last.status == 'success' %}
+            <span class="badge badge-ok"><span class="dot bg-ok"></span>success</span>
+            {% elif last.status == 'failed' %}
+            <span class="badge badge-danger"><span class="dot bg-danger"></span>failed</span>
+            {% elif last.status in ['running','pending'] %}
+            <span class="badge badge-warn"><span class="dot bg-warn animate-pulse"></span>{{ last.status }}</span>
+            {% else %}
+            <span class="badge badge-neutral">{{ last.status }}</span>
+            {% endif %}
+            <div class="text-xs text-ink-faint mt-0.5">{{ last.finished_at | dt }}</div>
+          {% else %}
+            <span class="text-ink-faint italic">never</span>
+          {% endif %}
+        </td>
+        <td>
+          <button type="button"
+                  hx-post="/jobs/{{ job.id }}/toggle"
+                  hx-target="#jobs-table"
+                  hx-swap="innerHTML"
+                  data-toast-success="{{ 'Job disabled' if job.enabled else 'Job enabled' }}"
+                  aria-label="{{ 'Disable job' if job.enabled else 'Enable job' }}"
+                  title="{{ 'Click to disable' if job.enabled else 'Click to enable' }}"
+                  class="relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand {{ 'bg-ok' if job.enabled else 'bg-line-strong' }}">
+            <span class="inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform {{ 'translate-x-[1.25rem]' if job.enabled else 'translate-x-1' }}"></span>
+          </button>
+        </td>
+        <td class="text-right whitespace-nowrap">
+          <button type="button"
+                  hx-post="/jobs/{{ job.id }}/run"
+                  hx-target="#jobs-table"
+                  hx-swap="innerHTML"
+                  data-toast-success="Backup started"
+                  class="btn btn-primary btn-sm">Run</button>
+          <button type="button" onclick="openModal('/jobs/{{ job.id }}/edit')"
+                  class="btn btn-secondary btn-sm ml-1.5">Edit</button>
+          <button type="button"
+                  hx-post="/jobs/{{ job.id }}/delete"
+                  hx-target="#jobs-table"
+                  hx-swap="innerHTML"
+                  hx-confirm="Delete job '{{ job.name }}'? This cannot be undone."
+                  data-toast-success="Job deleted"
+                  class="btn btn-danger-outline btn-sm ml-1.5">Delete</button>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% if not items %}
+  <div class="card border-dashed p-10 text-center">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="mx-auto w-10 h-10 text-ink-faint mb-3"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+    <p class="text-ink font-medium">No backup jobs yet</p>
+    <p class="text-sm text-ink-muted mt-1 mb-4">Create a job to start protecting your buckets.</p>
+    <a href="/jobs?new=1"
+       onclick="event.preventDefault(); openModal('/jobs/new')"
+       class="btn btn-primary">New Backup Job</a>
+  </div>
+  {% endif %}
+</div>

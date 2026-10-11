@@ -1,0 +1,27 @@
+# Data dir (SQLite DB with encrypted secrets, run logs) — never commit
+data/
+*.db
+*.sqlite
+*.sqlite3
+*.log
+
+# Local rclone configuration may contain provider credentials
+rclone.conf/
+
+# Local environment
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+
+# Temp / test artifacts
+.smoketest/
+.pytest_cache/
+
+# Node (dev-only toolchain: eslint, jsdom, tailwindcss — never in the image)
+node_modules/

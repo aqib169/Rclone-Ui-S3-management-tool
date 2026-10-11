@@ -1,0 +1,400 @@
+{% extends "base.html" %}
+{% block title %}Help · Rclone S3 UI{% endblock %}
+{% block content %}
+<div class="mb-6">
+  <h1 class="text-2xl font-semibold mb-1">Help & Guide</h1>
+  <p class="text-sm text-gray-500">How the orchestrator works, how your backups are stored, and how to recover in an incident.</p>
+</div>
+
+<div class="flex flex-wrap gap-1 border-b border-gray-200 mb-6" role="tablist">
+  <button type="button" class="help-tab px-4 py-2 text-sm border-b-2 border-blue-600 text-blue-700 font-medium" data-tab="overview">Overview</button>
+  <button type="button" class="help-tab px-4 py-2 text-sm border-b-2 border-transparent text-gray-500 hover:text-gray-700" data-tab="rclone">rclone copy vs sync</button>
+  <button type="button" class="help-tab px-4 py-2 text-sm border-b-2 border-transparent text-gray-500 hover:text-gray-700" data-tab="workflow">Workflow</button>
+  <button type="button" class="help-tab px-4 py-2 text-sm border-b-2 border-transparent text-gray-500 hover:text-gray-700" data-tab="strategy">Backup strategy</button>
+  <button type="button" class="help-tab px-4 py-2 text-sm border-b-2 border-transparent text-gray-500 hover:text-gray-700" data-tab="storage">Storage & retention</button>
+  <button type="button" class="help-tab px-4 py-2 text-sm border-b-2 border-transparent text-gray-500 hover:text-gray-700" data-tab="recovery">Disaster recovery</button>
+</div>
+
+<!-- ============ OVERVIEW ============ -->
+<div class="help-panel" id="tab-overview">
+  <div class="grid md:grid-cols-2 gap-4 mb-6">
+    <div class="bg-white rounded-lg shadow p-5">
+      <h2 class="text-base font-semibold text-gray-800 mb-2">What this tool does</h2>
+      <p class="text-sm text-gray-600 leading-relaxed">
+        The orchestrator copies your S3 buckets (or local folders) to a destination bucket,
+        keeping a <strong>current mirror plus differential archives</strong>. Any historical point in time is restorable
+        independently, so you can go back to exactly how your data looked on a given date.
+        Backups run on a schedule you define (or manually on demand), are logged and audited,
+        and old snapshots are pruned automatically so storage doesn't grow forever.
+      </p>
+    </div>
+    <div class="bg-white rounded-lg shadow p-5">
+      <h2 class="text-base font-semibold text-gray-800 mb-2">Why you'd use it</h2>
+      <ul class="text-sm text-gray-600 space-y-2">
+        <li class="flex gap-2"><span class="text-blue-600 font-semibold">✓</span> Simple, scheduled backups with a web UI — no cron scripts.</li>
+        <li class="flex gap-2"><span class="text-blue-600 font-semibold">✓</span> Point-in-time recovery: restore a single file or a whole day.</li>
+        <li class="flex gap-2"><span class="text-blue-600 font-semibold">✓</span> Automatic retention keeps storage under control.</li>
+        <li class="flex gap-2"><span class="text-blue-600 font-semibold">✓</span> Full audit trail of every action and every background run.</li>
+        <li class="flex gap-2"><span class="text-blue-600 font-semibold">✓</span> Works with any S3-compatible store: Garage, MinIO, AWS S3, R2, B2…</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="bg-white rounded-lg shadow p-5">
+    <h2 class="text-base font-semibold text-gray-800 mb-4">The 30-second picture</h2>
+    <div class="flex flex-col md:flex-row items-stretch gap-2 text-sm">
+      <div class="flex-1 border border-gray-200 rounded p-3 text-center">
+        <div class="text-2xl mb-1">📦</div>
+        <div class="font-medium">Source</div>
+        <div class="text-xs text-gray-500 mt-1">remote: bucket / folder</div>
+      </div>
+      <div class="flex items-center justify-center text-gray-400 text-xl">→</div>
+      <div class="flex-1 border border-gray-200 rounded p-3 text-center">
+        <div class="text-2xl mb-1">🗄️</div>
+        <div class="font-medium">Orchestrator</div>
+        <div class="text-xs text-gray-500 mt-1">schedule · rclone · retention · audit</div>
+      </div>
+      <div class="flex items-center justify-center text-gray-400 text-xl">→</div>
+      <div class="flex-1 border border-gray-200 rounded p-3 text-center">
+        <div class="text-2xl mb-1">🗓️</div>
+        <div class="font-medium">Differential archives</div>
+        <div class="text-xs text-gray-500 mt-1">bucket/archive/YYYY-MM-DD_HH-MM-SS/…</div>
+      </div>
+      <div class="flex items-center justify-center text-gray-400 text-xl">→</div>
+      <div class="flex-1 border border-gray-200 rounded p-3 text-center">
+        <div class="text-2xl mb-1">🔁</div>
+        <div class="font-medium">Restore</div>
+        <div class="text-xs text-gray-500 mt-1">any file, any date</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ RCLONE COPY VS SYNC ============ -->
+<div class="help-panel hidden" id="tab-rclone">
+  <p class="text-sm text-gray-600 mb-4 leading-relaxed">
+    All transfers are performed by <strong>rclone</strong>, a battle-tested tool for copying data
+    to/from cloud storage. It compares each file by <strong>checksum and size</strong>, so it only
+    transfers what actually changed. Two rclone commands are used, and they behave very differently:
+  </p>
+
+  <div class="grid md:grid-cols-2 gap-4 mb-4">
+    <div class="bg-white rounded-lg shadow p-5 border-t-4 border-blue-600">
+      <h3 class="font-semibold text-gray-800 mb-1">rclone copy</h3>
+      <p class="text-xs text-gray-400 mb-3">one-way copy · never deletes</p>
+      <ul class="text-sm text-gray-600 space-y-1.5">
+        <li class="flex gap-2"><span class="text-blue-600">•</span> Copies new or changed files to the destination.</li>
+        <li class="flex gap-2"><span class="text-blue-600">•</span> <strong>Never deletes</strong> anything already at the destination.</li>
+        <li class="flex gap-2"><span class="text-blue-600">•</span> Overwrites a file only if the source changed.</li>
+      </ul>
+      <div class="text-xs text-gray-500 mt-3">Used for: <span class="font-medium">restoring individual files/folders</span> — safe, additive, non-destructive.</div>
+    </div>
+    <div class="bg-white rounded-lg shadow p-5 border-t-4 border-amber-500">
+      <h3 class="font-semibold text-gray-800 mb-1">rclone sync</h3>
+      <p class="text-xs text-gray-400 mb-3">mirror · deletes extras</p>
+      <ul class="text-sm text-gray-600 space-y-1.5">
+        <li class="flex gap-2"><span class="text-amber-600">•</span> Copies new or changed files to the destination.</li>
+        <li class="flex gap-2"><span class="text-amber-600">•</span> <strong>Deletes</strong> destination files that no longer exist in the source.</li>
+        <li class="flex gap-2"><span class="text-amber-600">•</span> Makes the destination an exact mirror of the source.</li>
+      </ul>
+      <div class="text-xs text-gray-500 mt-3">Used for: <span class="font-medium">differential backups</span> — syncs the source into the <code>latest/</code> mirror and, via <code>--backup-dir</code>, moves every changed/deleted file into a timestamped <code>archive/&lt;ts&gt;/</code> delta.</div>
+    </div>
+  </div>
+
+  <div class="bg-white rounded-lg shadow p-5 mb-4">
+    <h3 class="font-semibold text-gray-800 mb-3">Where each is used in the project</h3>
+    <div class="overflow-x-auto">
+      <table class="min-w-full text-sm">
+        <thead class="bg-gray-50 text-left text-xs uppercase text-gray-500">
+          <tr><th class="px-4 py-2">Operation</th><th class="px-4 py-2">Command mode</th><th class="px-4 py-2">Why</th></tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+          <tr><td class="px-4 py-2 font-medium">Scheduled / manual backup</td><td class="px-4 py-2">sync</td><td class="px-4 py-2 text-gray-600"><code>latest/</code> must mirror the source exactly (including deletions); <code>--backup-dir</code> moves changed/deleted files into <code>archive/&lt;ts&gt;/</code></td></tr>
+          <tr><td class="px-4 py-2 font-medium">Restore selected files</td><td class="px-4 py-2">copy</td><td class="px-4 py-2 text-gray-600">restore must never delete anything at the target</td></tr>
+          <tr><td class="px-4 py-2 font-medium">Restore latest / historical</td><td class="px-4 py-2">copy (+ reverse overlay)</td><td class="px-4 py-2 text-gray-600">latest = copy baseline; historical = baseline + the deltas at/after T overlaid newest-first (each delta reverts that run's changes)</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="bg-white rounded-lg shadow p-5">
+    <h3 class="font-semibold text-gray-800 mb-3">The exact rclone flags the orchestrator uses</h3>
+    <div class="grid md:grid-cols-2 gap-4">
+      <div>
+        <div class="text-xs text-gray-500 mb-1">Backup (differential, per run)</div>
+        <pre id="cmd-backup" class="bg-gray-900 text-gray-100 rounded p-3 text-xs overflow-auto leading-relaxed">rclone sync \
+  src:bucket \→ dest:bucket/latest/ \
+  --backup-dir dest:bucket/archive/2026-08-21_12-00-00/ \
+  --config /tmp/rclone.conf --checksum --transfers 4 \
+  --no-update-modtime --stats 10s --stats-one-line</pre>
+        <button type="button" onclick="copyCmd('cmd-backup')" class="text-xs text-blue-600 hover:underline mt-1">Copy command</button>
+      </div>
+      <div>
+        <div class="text-xs text-gray-500 mb-1">Restore latest / historical</div>
+        <pre id="cmd-restore" class="bg-gray-900 text-gray-100 rounded p-3 text-xs overflow-auto leading-relaxed"># latest state (single copy)
+rclone copy dest:bucket/latest/ \→ target:bucket/
+# historical PITR to T: baseline, then every archive delta AT/after T, newest first
+rclone copy dest:bucket/latest/ \→ target:bucket/
+rclone copy dest:bucket/archive/2026-08-22_07-40-45/ \→ target:bucket/   # Step B 1/N (newest)
+rclone copy dest:bucket/archive/2026-08-21_09-00-00/ \→ target:bucket/   # Step B N/N (…)</pre>
+        <button type="button" onclick="copyCmd('cmd-restore')" class="text-xs text-blue-600 hover:underline mt-1">Copy command</button>
+      </div>
+    </div>
+    <p class="text-xs text-gray-500 mt-3">
+      <code>--checksum</code> skips files whose content matches · <code>--transfers 4</code> copies up to 4 files in parallel ·
+      <code>--no-update-modtime</code> avoids pointless re-copies · <code>--stats 10s</code> feeds the live progress bar.
+    </p>
+  </div>
+</div>
+
+<!-- ============ WORKFLOW ============ -->
+<div class="help-panel hidden" id="tab-workflow">
+  <div class="grid md:grid-cols-3 gap-4">
+    <button type="button" class="wf-step text-left bg-white rounded-lg shadow p-4 border-2 border-transparent hover:border-blue-500" data-step="0">
+      <div class="text-xs font-semibold text-blue-600">STEP 1</div>
+      <div class="font-medium text-gray-800">Add remotes</div>
+      <div class="text-xs text-gray-500 mt-1">Define each source/destination (S3 endpoint or local folder) with its credentials. "Test First" verifies the connection.</div>
+    </button>
+    <button type="button" class="wf-step text-left bg-white rounded-lg shadow p-4 border-2 border-transparent hover:border-blue-500" data-step="1">
+      <div class="text-xs font-semibold text-blue-600">STEP 2</div>
+      <div class="font-medium text-gray-800">Create a job</div>
+      <div class="text-xs text-gray-500 mt-1">Pick source → destination and (optionally) a cron schedule. Enable it to be picked up by the scheduler.</div>
+    </button>
+    <button type="button" class="wf-step text-left bg-white rounded-lg shadow p-4 border-2 border-transparent hover:border-blue-500" data-step="2">
+      <div class="text-xs font-semibold text-blue-600">STEP 3</div>
+      <div class="font-medium text-gray-800">Run it</div>
+      <div class="text-xs text-gray-500 mt-1">On schedule, or click Run now. rclone syncs the source into today's archive folder.</div>
+    </button>
+    <button type="button" class="wf-step text-left bg-white rounded-lg shadow p-4 border-2 border-transparent hover:border-blue-500" data-step="3">
+      <div class="text-xs font-semibold text-blue-600">STEP 4</div>
+      <div class="font-medium text-gray-800">Watch & audit</div>
+      <div class="text-xs text-gray-500 mt-1">Follow live progress and logs (SSE). Every run and user action lands in the audit log.</div>
+    </button>
+    <button type="button" class="wf-step text-left bg-white rounded-lg shadow p-4 border-2 border-transparent hover:border-blue-500" data-step="4">
+      <div class="text-xs font-semibold text-blue-600">STEP 5</div>
+      <div class="font-medium text-gray-800">Retention trims</div>
+      <div class="text-xs text-gray-500 mt-1">Each day at 03:00 UTC, archive folders older than RETAIN_DAYS are removed automatically.</div>
+    </button>
+    <button type="button" class="wf-step text-left bg-white rounded-lg shadow p-4 border-2 border-transparent hover:border-blue-500" data-step="5">
+      <div class="text-xs font-semibold text-blue-600">STEP 6</div>
+      <div class="font-medium text-gray-800">Restore when needed</div>
+      <div class="text-xs text-gray-500 mt-1">Browse any kept timestamp (or the current latest/) and restore a file, a folder, or the whole state.</div>
+    </button>
+  </div>
+  <div id="wf-detail" class="mt-4 bg-blue-50 border border-blue-200 rounded p-4 text-sm text-gray-700">
+    Click a step to see more detail.
+  </div>
+  <div id="wf-details" class="hidden">
+    <div class="text-xs">Remotes are shared by all jobs. A remote can be used as a source by one job and a destination by another.</div>
+    <div class="text-xs">A scheduled job must be enabled. Disabled jobs are exempt from retention pruning.</div>
+    <div class="text-xs">The destination is <code>&lt;dest_bucket&gt;/latest/&lt;dest_path&gt;/</code>; each run moves changed/deleted files into <code>archive/&lt;timestamp&gt;/</code>.</div>
+    <div class="text-xs">History and Audit pages are paginated (25 per page) — history filters by kind/status, audit by search/action/user.</div>
+    <div class="text-xs">Retention only applies to enabled jobs' destinations. It is permanent — enable bucket versioning for extra safety.</div>
+    <div class="text-xs">Restore is non-destructive (copy, never deletes): latest = single copy of the baseline; historical PITR overlays the archive deltas at/after the target timestamp, newest first, to revert those runs' changes.</div>
+  </div>
+</div>
+
+<!-- ============ STRATEGY ============ -->
+<div class="help-panel hidden" id="tab-strategy">
+  <div class="bg-white rounded-lg shadow p-5 mb-4">
+    <h2 class="text-base font-semibold text-gray-800 mb-2">The backup strategy</h2>
+    <p class="text-sm text-gray-600 leading-relaxed">
+      Every job keeps a <strong>current-state mirror in <code>latest/</code></strong>. Each run
+      <code>sync</code>s the source into it and uses <code>--backup-dir</code> to move any
+      overwritten or deleted file into a timestamped <code>archive/YYYY-MM-DD_HH-MM-SS/</code>
+      delta. So the archive stores only <strong>changes</strong> — storage grows with what
+      actually changed, not with full copies. A point-in-time restore reconstructs any state by
+      overlaying the deltas taken at or after the target timestamp, newest first (the target run's
+      own delta is applied too, reverting that run's changes). Retention keeps only
+      the most recent <code>RETAIN_DAYS</code> deltas (the <code>latest/</code> baseline is never
+      pruned).
+    </p>
+  </div>
+  <div class="bg-white rounded-lg shadow p-5">
+    <h2 class="text-base font-semibold text-gray-800 mb-3">Snapshot isolation</h2>
+    <p class="text-sm text-gray-600 mb-3 leading-relaxed">
+      If one day's data is wrong (bad deploy, accidental deletion, corruption), only that day's folder
+      is affected — older snapshots remain untouched. You restore from the last good date.
+    </p>
+    <div class="grid md:grid-cols-3 gap-3 text-sm">
+      <div class="border border-gray-200 rounded p-3"><div class="font-medium text-gray-800 mb-1">Ransomware / accidental deletion</div><div class="text-xs text-gray-500">Restore from an archive taken before the incident.</div></div>
+      <div class="border border-gray-200 rounded p-3"><div class="font-medium text-gray-800 mb-1">Bad release / bad data</div><div class="text-xs text-gray-500">Point-in-time restore to yesterday's snapshot.</div></div>
+      <div class="border border-gray-200 rounded p-3"><div class="font-medium text-gray-800 mb-1">Full bucket loss</div><div class="text-xs text-gray-500">Restore-all into a fresh bucket; nothing is deleted (copy fallback).</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ STORAGE & RETENTION ============ -->
+<div class="help-panel hidden" id="tab-storage">
+  <div class="grid md:grid-cols-2 gap-4">
+    <div class="bg-white rounded-lg shadow p-5">
+      <h2 class="text-base font-semibold text-gray-800 mb-3">How archives are stored</h2>
+      <div class="text-xs text-gray-500 mb-2">Structure on the destination bucket:</div>
+      <pre id="tree" class="bg-gray-900 text-gray-100 rounded p-3 text-xs overflow-auto leading-relaxed">dest_bucket/
+├── latest/                    ← current state (sync target, never pruned)
+│   └── my-app/
+│       ├── docs/report.pdf
+│       └── config.yaml
+└── archive/                   ← deltas of changed/deleted files
+    ├── 2026-08-19_03-00-00/
+    │   └── my-app/config.yaml     (old version moved aside)
+    ├── 2026-08-20_12-00-00/
+    │   └── my-app/…               (delta only)
+    └── 2026-08-21_06-00-00/
+        └── my-app/…               (delta only)</pre>
+      <p class="text-xs text-gray-500 mt-3">
+        Each run <code>sync</code>s into <code>latest/</code> and moves overwritten/deleted
+        files into a timestamped <code>archive/&lt;ts&gt;/</code> delta via
+        <code>--backup-dir</code> — storage grows with changes, not full copies. Even a
+        3-hour schedule never collides.
+      </p>
+    </div>
+
+    <div class="bg-white rounded-lg shadow p-5">
+      <h2 class="text-base font-semibold text-gray-800 mb-3">How retention works</h2>
+      <p class="text-sm text-gray-600 mb-2">
+        Every day at <strong>03:00 UTC</strong> the orchestrator deletes archive folders older than
+        <code>RETAIN_DAYS</code> (default {{ retain_days }}). Drag the slider to preview which dates would be kept:
+      </p>
+      <div class="mb-3">
+        <label class="text-xs text-gray-500">Keep the last <span id="retain-val" class="font-semibold text-blue-700">{{ retain_days }}</span> days</label>
+        <input type="range" id="retain-slider" min="1" max="{{ [retain_days * 2, 30] | max }}" value="{{ retain_days }}" class="w-full">
+      </div>
+      <div id="retain-chips" class="flex flex-wrap gap-1.5"></div>
+      <div class="flex gap-4 mt-3 text-xs text-gray-500">
+        <span class="flex items-center gap-1"><span class="w-3 h-3 rounded border border-blue-600 bg-blue-50 inline-block"></span> kept</span>
+        <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-gray-200 inline-block"></span> pruned by retention</span>
+      </div>
+    </div>
+  </div>
+  <div class="mt-4 bg-white rounded-lg shadow p-5">
+    <h2 class="text-base font-semibold text-gray-800 mb-2">Storage usage & housekeeping</h2>
+    <ul class="text-sm text-gray-600 space-y-2">
+      <li class="flex gap-2"><span class="text-blue-600">•</span> Storage grows roughly as <code>RETAIN_DAYS × daily-source-size</code>. Tune <code>RETAIN_DAYS</code> in Settings.</li>
+      <li class="flex gap-2"><span class="text-blue-600">•</span> Because the archive stores only changed/deleted bytes (deltas), storage grows with change rate, not with a full copy per run.</li>
+      <li class="flex gap-2"><span class="text-blue-600">•</span> Run logs are pruned daily (<code>LOG_RETAIN_DAYS</code>), and the orchestrator can back itself up to a bucket (<code>SELF_BACKUP_DEST</code>).</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============ RECOVERY ============ -->
+<div class="help-panel hidden" id="tab-recovery">
+  <div class="grid md:grid-cols-2 gap-4 mb-4">
+    <div class="bg-white rounded-lg shadow p-5">
+      <h2 class="text-base font-semibold text-gray-800 mb-2">1 · Recover lost or damaged files</h2>
+      <ol class="text-sm text-gray-600 list-decimal pl-5 space-y-1.5">
+        <li>Open <strong>Restore</strong> in the nav.</li>
+        <li>Pick the source remote + bucket where the archive lives.</li>
+        <li>Choose the date from the last good snapshot.</li>
+        <li>Browse the tree and tick the files/folders you need.</li>
+        <li>Choose a target remote/bucket and <strong>Restore selected</strong> (copy — nothing at the target is deleted).</li>
+      </ol>
+    </div>
+    <div class="bg-white rounded-lg shadow p-5">
+      <h2 class="text-base font-semibold text-gray-800 mb-2">2 · Recover a whole bucket</h2>
+      <ol class="text-sm text-gray-600 list-decimal pl-5 space-y-1.5">
+        <li>Create the destination bucket (or reuse an empty one).</li>
+        <li>Open <strong>Restore</strong>, pick the archive remote/bucket and the date.</li>
+        <li>Choose <strong>Restore entire archive</strong> and the target bucket.</li>
+        <li>Restore-all copies the state back with <code>rclone copy</code> — nothing at the target is ever deleted (non-destructive).</li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="bg-white rounded-lg shadow p-5 mb-4">
+    <h2 class="text-base font-semibold text-gray-800 mb-2">3 · Recover the orchestrator itself</h2>
+    <p class="text-sm text-gray-600 leading-relaxed mb-3">
+      If the orchestrator's container/database is lost, restore its metadata from the self-backup
+      (if <code>SELF_BACKUP_DEST</code> is set) or from your own backup of the data directory:
+    </p>
+    <ol class="text-sm text-gray-600 list-decimal pl-5 space-y-1.5">
+      <li>Restore <code>orchestrator.db</code> <strong>and</strong> <code>.encryption_key</code> into <code>./data/</code> — the key decrypts your remote credentials.</li>
+      <li>Start the container. It re-reads the DB, marks crashed runs as failed, and rebuilds the scheduler.</li>
+      <li>The backups themselves live on the buckets, independent of this app — deleting the orchestrator never deletes your backups.</li>
+    </ol>
+  </div>
+
+  <div class="bg-white rounded-lg shadow p-5">
+    <h2 class="text-base font-semibold text-gray-800 mb-2">Best practices</h2>
+    <ul class="text-sm text-gray-600 space-y-2">
+      <li class="flex gap-2"><span class="text-blue-600">•</span> Follow <strong>3-2-1</strong>: at least 3 copies, 2 different media, 1 off-site. Use this tool for the off-site leg.</li>
+      <li class="flex gap-2"><span class="text-blue-600">•</span> Enable <strong>bucket versioning / object lock</strong> on the archive bucket to survive accidental retention purges.</li>
+      <li class="flex gap-2"><span class="text-blue-600">•</span> Back up <code>data/</code> (or use <code>SELF_BACKUP_DEST</code>) so the orchestrator itself can be rebuilt.</li>
+      <li class="flex gap-2"><span class="text-blue-600">•</span> Test restores regularly — a backup you've never restored is just a hope.</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+(function () {
+  function activateTabs() {
+    document.querySelectorAll('.help-tab').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        document.querySelectorAll('.help-tab').forEach(function (b) {
+          b.classList.remove('border-blue-600', 'text-blue-700', 'font-medium');
+          b.classList.add('border-transparent', 'text-gray-500');
+        });
+        btn.classList.remove('border-transparent', 'text-gray-500');
+        btn.classList.add('border-blue-600', 'text-blue-700', 'font-medium');
+        document.querySelectorAll('.help-panel').forEach(function (p) { p.classList.add('hidden'); });
+        var panel = document.getElementById('tab-' + btn.dataset.tab);
+        if (panel) panel.classList.remove('hidden');
+      });
+    });
+  }
+
+  function workflow() {
+    var details = Array.prototype.slice.call(document.querySelectorAll('#wf-details > div')).map(function (d) { return d.textContent; });
+    var detailEl = document.getElementById('wf-detail');
+    document.querySelectorAll('.wf-step').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        document.querySelectorAll('.wf-step').forEach(function (b) { b.classList.remove('border-blue-600', 'bg-blue-50'); });
+        btn.classList.add('border-blue-600', 'bg-blue-50');
+        var i = parseInt(btn.dataset.step, 10);
+        detailEl.textContent = (i + 1) + '. ' + (details[i] || '');
+      });
+    });
+  }
+
+  function retention() {
+    var slider = document.getElementById('retain-slider');
+    var val = document.getElementById('retain-val');
+    var chips = document.getElementById('retain-chips');
+    var today = new Date();
+    function render() {
+      var days = parseInt(slider.value, 10);
+      val.textContent = days;
+      chips.innerHTML = '';
+      for (var i = 29; i >= 0; i--) {
+        var d = new Date(today.getTime() - i * 86400000);
+        var label = d.toISOString().slice(0, 10);
+        var kept = i < days;
+        var chip = document.createElement('span');
+        chip.textContent = label;
+        chip.title = kept ? 'kept' : 'pruned by retention';
+        chip.className = 'text-[10px] px-1.5 py-0.5 rounded border ' + (kept ? 'border-blue-600 bg-blue-50 text-blue-800' : 'bg-gray-200 text-gray-400 line-through');
+        if (i === 0) chip.textContent += ' ← today';
+        chips.appendChild(chip);
+      }
+    }
+    slider.addEventListener('input', render);
+    render();
+  }
+
+  window.copyCmd = function (id) {
+    var el = document.getElementById(id);
+    var txt = el.textContent.replace(/\\\n\s*/, ' ').replace(/→/g, '->').trim();
+    (navigator.clipboard ? navigator.clipboard.writeText(txt) : Promise.reject(new Error('no clipboard')))
+      .then(function () {
+        var btn = document.querySelector('[onclick="copyCmd(\'' + id + '\')"]');
+        if (btn) { var old = btn.textContent; btn.textContent = 'Copied ✓'; setTimeout(function () { btn.textContent = old; }, 1500); }
+      })
+      .catch(function () { window.prompt('Copy this command:', txt); });
+  };
+
+  activateTabs();
+  workflow();
+  retention();
+})();
+</script>
+{% endblock %}

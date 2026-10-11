@@ -1,0 +1,24 @@
+{
+  "name": "rclone-s3-management-ui",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Dev-only frontend toolchain for the Rclone S3 Management UI. The runtime image is Node-free; Tailwind ships as a committed build artifact and htmx is vendored.",
+  "license": "MIT",
+  "scripts": {
+    "build:css": "tailwindcss -c tailwind.config.js -i tailwind.input.css -o app/static/vendor/tailwind.css --minify",
+    "check:css": "tailwindcss -c tailwind.config.js -i tailwind.input.css -o /tmp/gbo-css-check.css --minify && cmp -s /tmp/gbo-css-check.css app/static/vendor/tailwind.css && echo 'tailwind.css is up to date' || { echo 'ERROR: app/static/vendor/tailwind.css is STALE - run: npm run build:css'; exit 1; }",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "test:dom": ".venv/bin/python -m pytest tests/test_remote_form_ui.py tests/test_htmx_scripts.py -v",
+    "test": ".venv/bin/python -m pytest tests/test_rclone_surface.py tests/test_htmx_scripts.py -v"
+  },
+  "devDependencies": {
+    "eslint": "^9.0.0",
+    "globals": "^15.0.0",
+    "jsdom": "^25.0.0",
+    "tailwindcss": "3.4.17"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

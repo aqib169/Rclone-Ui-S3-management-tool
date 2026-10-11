@@ -1,0 +1,41 @@
+{# Slim at-a-glance progress: a bar, a percentage, speed and ETA.
+   Used where a full progress card would not fit — the dashboard's active-runs
+   list, the history/job tables. For a single run in focus, use progress.html,
+   which carries the full breakdown (objects, deletes, errors, listed).
+
+   `progress` is supplied by the route (app.services.transfer.progress_for),
+   which reads the in-memory snapshot and falls back to tailing the run's log, so
+   this also works for scheduler-started runs and after a restart.
+
+   Nothing here polls. The surface that includes this component already refreshes
+   itself (the dashboard re-pulls the list every 3s, history on demand), and a
+   row that has left the running state is simply not rendered again.
+#}
+{% set done = run.status not in ['pending', 'running'] %}
+{% set pct = (progress.percent if progress else 0) | round(1) %}
+<div class="mt-1.5">
+  <div class="flex items-center gap-2">
+    <div class="h-1.5 flex-1 bg-app-raised rounded-full overflow-hidden">
+      <div class="h-full rounded-full transition-all duration-500
+                  {% if run.status == 'failed' %}bg-danger
+                  {% elif done %}bg-ok
+                  {% else %}bg-brand{% endif %}"
+           style="width: {{ pct }}%"></div>
+    </div>
+    <span class="font-mono text-xs text-ink-muted shrink-0 w-11 text-right">{{ pct }}%</span>
+  </div>
+  {% if not done %}
+  <div class="flex items-center gap-2 text-xs text-ink-faint font-mono mt-1">
+    {% if progress and progress.speed %}
+      <span>{{ progress.speed | bytes }}/s</span>
+      {%- if progress.eta %}
+      <span>· ETA {{ (progress.eta | round(0) | int) }}s</span>
+      {%- endif %}
+    {%- elif progress and progress.total_transfers %}
+      <span>{{ progress.transfers }} / {{ progress.total_transfers }} objects</span>
+    {%- else %}
+      <span>preparing…</span>
+    {%- endif %}
+  </div>
+  {% endif %}
+</div>

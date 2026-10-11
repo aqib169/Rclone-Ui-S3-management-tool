@@ -1,0 +1,399 @@
+<form id="job-form"
+      hx-post="{{ '/jobs/' ~ job.id if job else '/jobs' }}"
+      hx-swap="none"
+      hx-on::before-request="if(event.detail.elt.id==='job-form' && !validateJobForm()) { event.preventDefault(); }"
+      hx-on::after-request="jobFormAfter(event)"
+      class="space-y-4">
+
+  <div>
+    <label class="block text-sm font-medium text-gray-700">Name</label>
+    <input type="text" name="name" required value="{{ job.name if job else '' }}"
+           class="mt-1 w-full border border-gray-300 rounded px-3 py-2 text-sm">
+  </div>
+
+  <fieldset class="border border-gray-200 rounded p-3 space-y-2">
+    <legend class="text-sm font-medium text-gray-700 px-1">Source</legend>
+
+    <label class="block text-xs text-gray-500">Remote</label>
+    <select id="source-remote" name="source_remote" required
+            hx-get="/remotes/buckets" hx-trigger="change" hx-include="this"
+            hx-target="#source-bucket" hx-swap="innerHTML"
+            class="mt-1 w-full border border-gray-300 rounded px-3 py-2 text-sm">
+      <option value="">Select remote</option>
+      {% for r in remotes %}
+      <option value="{{ r }}" {% if job and job.source_remote == r %}selected{% endif %}>{{ r }}</option>
+      {% endfor %}
+    </select>
+
+    <label class="block text-xs text-gray-500 mt-2">Bucket</label>
+    <select id="source-bucket" name="source_bucket"
+            class="mt-1 w-full border border-gray-300 rounded px-3 py-2 text-sm">
+      {% if job %}
+        {% if job.source_bucket and job.source_bucket not in source_buckets %}
+        <option value="{{ job.source_bucket }}" selected>{{ job.source_bucket }}</option>
+        {% endif %}
+        <option value="" {% if not job.source_bucket %}selected{% endif %}>(root)</option>
+        {% for b in source_buckets %}
+        <option value="{{ b }}" {% if job.source_bucket == b %}selected{% endif %}>{{ b }}</option>
+        {% endfor %}
+      {% else %}
+        <option value="">Choose a remote first</option>
+      {% endif %}
+    </select>
+
+    <label class="block text-xs text-gray-500 mt-2">Path within bucket (optional)</label>
+    <input type="text" name="source_path" value="{{ job.source_path if job else '' }}"
+           placeholder="subdir/…"
+           class="mt-1 w-full border border-gray-300 rounded px-3 py-2 text-sm">
+  </fieldset>
+
+  <fieldset class="border border-gray-200 rounded p-3 space-y-2">
+    <legend class="text-sm font-medium text-gray-700 px-1">Destination</legend>
+
+    <label class="block text-xs text-gray-500">Remote</label>
+    <select id="destination-remote" name="dest_remote" required
+            hx-get="/remotes/buckets" hx-trigger="change" hx-include="this"
+            hx-target="#destination-bucket" hx-swap="innerHTML"
+            class="mt-1 w-full border border-gray-300 rounded px-3 py-2 text-sm">
+      <option value="">Select remote</option>
+      {% for r in remotes %}
+      <option value="{{ r }}" {% if job and job.dest_remote == r %}selected{% endif %}>{{ r }}</option>
+      {% endfor %}
+    </select>
+
+    <label class="block text-xs text-gray-500 mt-2">Bucket</label>
+    <select id="destination-bucket" name="dest_bucket"
+            class="mt-1 w-full border border-gray-300 rounded px-3 py-2 text-sm">
+      {% if job %}
+        {% if job.dest_bucket and job.dest_bucket not in dest_buckets %}
+        <option value="{{ job.dest_bucket }}" selected>{{ job.dest_bucket }}</option>
+        {% endif %}
+        <option value="" {% if not job.dest_bucket %}selected{% endif %}>(root)</option>
+        {% for b in dest_buckets %}
+        <option value="{{ b }}" {% if job.dest_bucket == b %}selected{% endif %}>{{ b }}</option>
+        {% endfor %}
+      {% else %}
+        <option value="">Choose a remote first</option>
+      {% endif %}
+    </select>
+
+    <label class="block text-xs text-gray-500 mt-2">Path within bucket (optional)</label>
+    <input type="text" name="dest_path" value="{{ job.dest_path if job else '' }}"
+           placeholder="subdir/…"
+           class="mt-1 w-full border border-gray-300 rounded px-3 py-2 text-sm">
+  </fieldset>
+
+  {% set cron_expr = cron_raw if job is not none else (cron.min ~ ' ' ~ cron.hour ~ ' ' ~ cron.day ~ ' ' ~ cron.month ~ ' ' ~ cron.dow) %}
+  <div>
+    <div class="flex items-center justify-between mb-2">
+      <label class="block text-sm font-medium text-gray-700">Schedule <span class="text-xs text-gray-400">(UTC)</span></label>
+      <div class="flex text-xs border border-gray-300 rounded overflow-hidden">
+        <button type="button" id="cron-mode-manual" class="cron-mode-btn px-2.5 py-1 border-r border-gray-300 bg-white text-gray-600">Manual</button>
+        <button type="button" id="cron-mode-simple" class="cron-mode-btn px-2.5 py-1 border-r border-gray-300 bg-white text-gray-600">Simple</button>
+        <button type="button" id="cron-mode-advanced" class="cron-mode-btn px-2.5 py-1 bg-white text-gray-600">Custom cron</button>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-2 mb-2">
+      <label class="text-xs text-gray-500 w-14">Preset</label>
+      <select id="cron-preset" class="w-full border border-gray-300 rounded px-3 py-2 text-sm">
+        <option value="">Manual</option>
+        <option value="0 * * * *">Every 1 hour</option>
+        <option value="0 */3 * * *">Every 3 hours</option>
+        <option value="0 */6 * * *">Every 6 hours</option>
+        <option value="0 */12 * * *">Every 12 hours</option>
+        <option value="0 0 * * *">Every 24 hours</option>
+        <option value="custom">Custom…</option>
+      </select>
+    </div>
+
+    <div id="cron-simple">
+      <div class="grid grid-cols-2 sm:grid-cols-5 gap-2">
+        <div>
+          <label class="text-xs text-gray-500">Minute</label>
+          <select id="cron-min" class="w-full border rounded px-2 py-1 text-sm">
+            <option value="*" {% if cron.min == '*' %}selected{% endif %}>*</option>
+            <option value="*/5" {% if cron.min == '*/5' %}selected{% endif %}>*/5</option>
+            <option value="*/10" {% if cron.min == '*/10' %}selected{% endif %}>*/10</option>
+            <option value="*/15" {% if cron.min == '*/15' %}selected{% endif %}>*/15</option>
+            <option value="*/30" {% if cron.min == '*/30' %}selected{% endif %}>*/30</option>
+            {% for i in range(60) %}<option value="{{ i }}" {% if i|string == cron.min %}selected{% endif %}>{{ i }}</option>{% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="text-xs text-gray-500">Hour</label>
+          <select id="cron-hour" class="w-full border rounded px-2 py-1 text-sm">
+            <option value="*" {% if cron.hour == '*' %}selected{% endif %}>*</option>
+            <option value="*/2" {% if cron.hour == '*/2' %}selected{% endif %}>*/2</option>
+            <option value="*/3" {% if cron.hour == '*/3' %}selected{% endif %}>*/3</option>
+            <option value="*/4" {% if cron.hour == '*/4' %}selected{% endif %}>*/4</option>
+            <option value="*/6" {% if cron.hour == '*/6' %}selected{% endif %}>*/6</option>
+            <option value="*/12" {% if cron.hour == '*/12' %}selected{% endif %}>*/12</option>
+            {% for i in range(24) %}<option value="{{ i }}" {% if i|string == cron.hour %}selected{% endif %}>{{ i }}</option>{% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="text-xs text-gray-500">Day</label>
+          <select id="cron-day" class="w-full border rounded px-2 py-1 text-sm">
+            <option value="*" {% if cron.day == '*' %}selected{% endif %}>*</option>
+            <option value="*/2" {% if cron.day == '*/2' %}selected{% endif %}>*/2</option>
+            {% for i in range(1,32) %}<option value="{{ i }}" {% if i|string == cron.day %}selected{% endif %}>{{ i }}</option>{% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="text-xs text-gray-500">Month</label>
+          <select id="cron-month" class="w-full border rounded px-2 py-1 text-sm">
+            <option value="*" {% if cron.month == '*' %}selected{% endif %}>*</option>
+            <option value="*/2" {% if cron.month == '*/2' %}selected{% endif %}>*/2</option>
+            <option value="*/3" {% if cron.month == '*/3' %}selected{% endif %}>*/3</option>
+            <option value="*/4" {% if cron.month == '*/4' %}selected{% endif %}>*/4</option>
+            <option value="*/6" {% if cron.month == '*/6' %}selected{% endif %}>*/6</option>
+            {% for i in range(1,13) %}<option value="{{ i }}" {% if i|string == cron.month %}selected{% endif %}>{{ i }}</option>{% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="text-xs text-gray-500">Weekday</label>
+          <select id="cron-dow" class="w-full border rounded px-2 py-1 text-sm">
+            <option value="*" {% if cron.dow == '*' %}selected{% endif %}>*</option>
+            <option value="0" {% if cron.dow == '0' %}selected{% endif %}>Sun</option>
+            <option value="1" {% if cron.dow == '1' %}selected{% endif %}>Mon</option>
+            <option value="2" {% if cron.dow == '2' %}selected{% endif %}>Tue</option>
+            <option value="3" {% if cron.dow == '3' %}selected{% endif %}>Wed</option>
+            <option value="4" {% if cron.dow == '4' %}selected{% endif %}>Thu</option>
+            <option value="5" {% if cron.dow == '5' %}selected{% endif %}>Fri</option>
+            <option value="6" {% if cron.dow == '6' %}selected{% endif %}>Sat</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div id="cron-advanced-box" class="hidden">
+      <input type="text" id="cron-advanced" value="{{ cron_expr }}"
+             placeholder="0 */3 * * *"
+             class="w-full border border-gray-300 rounded px-3 py-2 text-sm font-mono">
+      <p class="text-xs text-gray-400 mt-1">
+        Examples: <code>0 */3 * * *</code> every 3 hours &middot; <code>* * * * *</code> every minute &middot;
+        <code>0 0,12 * * *</code> twice a day &middot; empty = manual only &middot;
+        <code>* */3 * * *</code> is auto-sanitized to <code>0 */3 * * *</code> (minute pinned to 0)
+      </p>
+    </div>
+
+    <input type="hidden" name="schedule_cron" id="schedule-cron" value="{{ cron_expr }}">
+
+    <div id="cron-sanitize-note" class="hidden mt-2 px-3 py-2 rounded bg-amber-50 border border-amber-200 text-xs text-amber-800"></div>
+    <div id="cron-preview" class="hidden mt-2 px-3 py-2 rounded bg-blue-50 border border-blue-200 text-sm text-blue-800"></div>
+    <div id="cron-error" class="hidden mt-2 px-3 py-2 rounded bg-red-50 border border-red-200 text-sm text-red-700"></div>
+  </div>
+
+  <div class="flex items-center justify-between">
+    <label class="text-sm flex items-center gap-2">
+      <input type="checkbox" name="enabled" value="true"
+             {% if job is none or job.enabled %}checked{% endif %}>
+      Enabled
+    </label>
+  </div>
+
+  {% if remotes_error %}
+  <p class="text-xs text-red-600">Failed to load remotes: {{ remotes_error }}</p>
+  {% endif %}
+
+  <div class="flex justify-end gap-3 pt-2">
+    <button type="button" onclick="closeModal()"
+            class="px-4 py-2 text-sm border border-gray-300 rounded text-gray-600">Cancel</button>
+    <button type="submit"
+            class="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700">Save</button>
+  </div>
+</form>
+
+<script>
+// Wrapped in an IIFE on purpose: htmx re-executes swapped <script> blocks every
+// time the modal is opened, and the top-level `const`/`let` declarations below
+// would then throw "Identifier has already been declared" on the second open,
+// silently killing the whole cron builder. Only the helpers the inline handlers
+// call are published on `window`, which redeclares safely.
+(function () {
+const CRON_RANGES = [[0,59],[0,23],[1,31],[1,12],[0,6]];
+const DOW = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+let cronMode = 'simple';
+function cronFieldValid(field, lo, hi){
+  const parts = String(field).split(',');
+  for (let p of parts){
+    p = p.trim();
+    let base = p, step = 1;
+    if (p.includes('/')){
+      const i = p.indexOf('/');
+      base = p.slice(0,i);
+      const s = p.slice(i+1);
+      if (!/^\d+$/.test(s) || parseInt(s,10) < 1) return false;
+    }
+    if (base === '*') continue;
+    if (base.includes('-')){
+      const i = base.indexOf('-');
+      const a = base.slice(0,i), b = base.slice(i+1);
+      if (!/^\d+$/.test(a) || !/^\d+$/.test(b)) return false;
+      const av = parseInt(a,10), bv = parseInt(b,10);
+      if (av < lo || av > hi || bv < lo || bv > hi || av > bv) return false;
+      continue;
+    }
+    if (!/^\d+$/.test(base)) return false;
+    const v = parseInt(base,10);
+    if (v < lo || v > hi) return false;
+  }
+  return true;
+}
+function cronValid(cron){
+  const s = String(cron || '').trim();
+  if (!s) return true;
+  const p = s.split(/\s+/);
+  if (p.length !== 5) return false;
+  for (let i = 0; i < 5; i++){
+    if (!cronFieldValid(p[i], CRON_RANGES[i][0], CRON_RANGES[i][1])) return false;
+  }
+  return true;
+}
+function currentCron(){
+  const g = id => document.getElementById(id).value;
+  return `${g('cron-min')} ${g('cron-hour')} ${g('cron-day')} ${g('cron-month')} ${g('cron-dow')}`;
+}
+const CRON_PRESETS = {
+  '0 * * * *': 'Every 1 hour',
+  '0 */3 * * *': 'Every 3 hours',
+  '0 */6 * * *': 'Every 6 hours',
+  '0 */12 * * *': 'Every 12 hours',
+  '0 0 * * *': 'Every 24 hours',
+};
+function sanitizeCron(cron){
+  const s = String(cron || '').trim();
+  const p = s.split(/\s+/);
+  if (p.length === 5 && p[0] === '*' && p[1].startsWith('*/')){
+    p[0] = '0';
+    return { cron: p.join(' '), sanitized: true };
+  }
+  return { cron: s, sanitized: false };
+}
+function describeCron(cron){
+  const s = String(cron || '').trim();
+  if (!s) return '';
+  const p = s.split(/\s+/);
+  if (p.length !== 5) return '';
+  const [min, hr, day, mon, dow] = p;
+  let t;
+  if (hr === '*') {
+    t = min === '*' ? 'every minute' : (min.startsWith('*/') ? 'every ' + min.slice(2) + ' minutes' : 'every hour at minute ' + min);
+  } else if (hr.startsWith('*/')) {
+    t = 'every ' + hr.slice(2) + ' hours';
+    if (min === '*') t += ', at every minute of those hours';
+    else if (min !== '0') t += ', at minute ' + min;
+  } else {
+    t = 'at ' + hr.padStart(2, '0') + ':' + (min === '*' ? 'every minute' : min.padStart(2, '0'));
+  }
+  if (mon !== '*') t += ', in month ' + mon;
+  if (day !== '*') t += ', on day ' + day;
+  if (dow !== '*') t += /^\d$/.test(dow) ? ', on ' + DOW[parseInt(dow,10)] : ', on weekday ' + dow;
+  return t;
+}
+function syncDropdownsFromAdvanced(cron){
+  const p = String(cron || '').trim().split(/\s+/);
+  if (p.length !== 5) return;
+  ['cron-min','cron-hour','cron-day','cron-month','cron-dow'].forEach((id, i) => {
+    const sel = document.getElementById(id);
+    const opt = sel.querySelector('option[value="' + p[i] + '"]');
+    if (opt) sel.value = p[i];
+  });
+}
+function applyCron(cron){
+  const sanitized = sanitizeCron(cron);
+  cron = sanitized.cron;
+  const hidden = document.getElementById('schedule-cron');
+  const errEl = document.getElementById('cron-error');
+  const preview = document.getElementById('cron-preview');
+  const note = document.getElementById('cron-sanitize-note');
+  const valid = cronValid(cron);
+  hidden.value = valid ? String(cron).trim() : '';
+  if (sanitized.sanitized){
+    note.textContent = 'Minute auto-set to 0 — a step-hour schedule (' + String(cron).split(/\s+/)[1] + ') with minute * would fire every minute during those hours.';
+    note.classList.remove('hidden');
+  } else {
+    note.classList.add('hidden');
+  }
+  if (valid){
+    syncDropdownsFromAdvanced(cron);
+    errEl.classList.add('hidden');
+    const txt = describeCron(cron);
+    preview.textContent = txt;
+    preview.classList.toggle('hidden', !txt);
+  } else {
+    preview.classList.add('hidden');
+    errEl.textContent = 'Invalid cron "' + String(cron).trim() + '" — expected 5 fields (minute hour day month weekday) in ranges 0-59 0-23 1-31 1-12 0-6, supporting *, */n, n-m, and comma lists.';
+    errEl.classList.remove('hidden');
+  }
+  return valid;
+}
+function updateCron(){
+  document.getElementById('cron-advanced').value = currentCron();
+  applyCron(currentCron());
+}
+function isSimpleCron(cron){
+  const s = String(cron || '').trim();
+  if (!s) return true;
+  const p = s.split(/\s+/);
+  if (p.length !== 5) return false;
+  const ids = ['cron-min','cron-hour','cron-day','cron-month','cron-dow'];
+  for (let i = 0; i < 5; i++){
+    const sel = document.getElementById(ids[i]);
+    if (!sel || !sel.querySelector('option[value="' + p[i] + '"]')) return false;
+  }
+  return true;
+}
+function setCronMode(mode){
+  cronMode = mode;
+  document.getElementById('cron-simple').classList.toggle('hidden', mode !== 'simple');
+  document.getElementById('cron-advanced-box').classList.toggle('hidden', mode !== 'advanced');
+  ['manual','simple','advanced'].forEach(function (m) {
+    const b = document.getElementById('cron-mode-' + m);
+    const active = m === mode;
+    b.className = 'cron-mode-btn px-2.5 py-1 ' + (m !== 'advanced' ? 'border-r border-gray-300 ' : '') +
+      (active ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50');
+  });
+  if (mode === 'manual') applyCron('');
+  else if (mode === 'simple') updateCron();
+  else { document.getElementById('cron-advanced').value = currentCron(); applyCron(document.getElementById('cron-advanced').value); }
+}
+function validateJobForm(){
+  if (cronMode === 'advanced') return cronValid(document.getElementById('cron-advanced').value);
+  return true;
+}
+function jobFormAfter(e) {
+  if (!e.detail.successful || e.detail.elt.id !== 'job-form') return;
+  const nameInput = document.getElementById('job-form').querySelector('input[name="name"]');
+  const name = nameInput ? nameInput.value.trim() : '';
+  closeModal();
+  showToast(name ? 'Job "' + name + '" saved' : 'Job saved', 'success');
+  if (document.getElementById('jobs-table')) {
+    htmx.ajax('GET', '/jobs/table', { target: '#jobs-table', swap: 'innerHTML' });
+  } else if (document.getElementById('stats')) {
+    htmx.ajax('GET', '/dashboard/stats', { target: '#stats', swap: 'innerHTML' });
+  }
+}
+const adv = document.getElementById('cron-advanced');
+adv.addEventListener('input', () => applyCron(adv.value));
+['cron-min','cron-hour','cron-day','cron-month','cron-dow'].forEach(id => {
+  document.getElementById(id).addEventListener('change', updateCron);
+});
+document.getElementById('cron-mode-manual').addEventListener('click', function () { setCronMode('manual'); });
+document.getElementById('cron-mode-simple').addEventListener('click', function () { setCronMode('simple'); });
+document.getElementById('cron-mode-advanced').addEventListener('click', function () { setCronMode('advanced'); });
+document.getElementById('cron-preset').addEventListener('change', function () {
+  const v = this.value;
+  if (v === 'custom') { setCronMode('advanced'); return; }
+  if (!v) { setCronMode('manual'); return; }
+  syncDropdownsFromAdvanced(v);
+  setCronMode('simple');
+});
+
+if (!adv.value.trim()) setCronMode('manual');
+else if (isSimpleCron(adv.value)) { syncDropdownsFromAdvanced(adv.value); setCronMode('simple'); }
+else setCronMode('advanced');
+if (CRON_PRESETS[adv.value.trim()]) document.getElementById('cron-preset').value = adv.value.trim();
+})();
+</script>

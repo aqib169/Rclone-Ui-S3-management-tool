@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Jobs · Rclone S3 UI{% endblock %}
+{% block content %}
+<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+  <h1 class="text-xl sm:text-2xl font-semibold text-ink">Jobs</h1>
+  <button type="button" onclick="openModal('/jobs/new')"
+          class="btn btn-primary">New Job</button>
+</div>
+
+<div id="jobs-table"
+     hx-get="/jobs/table"
+     hx-trigger="load, every 3s"
+     hx-swap="innerHTML">
+  {% include "components/job_table.html" %}
+</div>
+{% endblock %}

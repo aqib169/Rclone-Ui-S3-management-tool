@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Audit · Rclone S3 UI{% endblock %}
+{% block content %}
+<h1 class="text-xl sm:text-2xl font-semibold mb-4 text-ink">Audit log</h1>
+
+<div id="audit-filters" class="flex flex-col sm:flex-row sm:flex-wrap gap-3 mb-4">
+  <input type="hidden" name="page" id="audit-page" value="{{ page }}">
+  <input type="text" name="search" value="{{ search }}"
+         placeholder="Search action / path / user…"
+         hx-get="/audit/partial" hx-trigger="input changed delay:500ms, search"
+         hx-include="#audit-filters" hx-target="#audit-table" hx-swap="innerHTML"
+         oninput="document.getElementById('audit-page').value='1'"
+         class="input w-full sm:flex-1 min-w-[160px]">
+  <div class="flex flex-wrap gap-3">
+    <select name="action"
+            hx-get="/audit/partial" hx-trigger="change" hx-include="#audit-filters"
+            hx-target="#audit-table" hx-swap="innerHTML"
+            onchange="document.getElementById('audit-page').value='1'"
+            class="input flex-1 sm:flex-none min-w-[150px] !w-auto cursor-pointer">
+      <option value="">All actions</option>
+      {% for a in actions %}
+      <option value="{{ a }}" {% if a == action %}selected{% endif %}>{{ a }}</option>
+      {% endfor %}
+    </select>
+    <input type="text" name="user" value="{{ user }}" placeholder="User"
+           hx-get="/audit/partial" hx-trigger="input changed delay:500ms"
+           hx-include="#audit-filters" hx-target="#audit-table" hx-swap="innerHTML"
+           oninput="document.getElementById('audit-page').value='1'"
+           class="input w-32 sm:w-40">
+    <button type="button" onclick="location.href='/audit'"
+            class="btn btn-secondary whitespace-nowrap">
+      Clear
+    </button>
+  </div>
+</div>
+
+<div id="audit-table" hx-get="/audit/partial" hx-trigger="every 10s" hx-include="#audit-filters" hx-swap="innerHTML">
+  {% include "components/audit_table.html" %}
+</div>
+{% endblock %}

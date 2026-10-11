@@ -1,0 +1,8 @@
+{% if buckets %}
+{% if note %}<option value="" disabled>{{ note }}</option>{% endif %}
+{% for b in buckets %}
+<option value="{{ b }}">{{ b }}</option>
+{% endfor %}
+{% else %}
+<option value="">{{ error or "No buckets available" }}</option>
+{% endif %}

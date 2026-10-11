@@ -1,0 +1,29 @@
+{% if error %}
+<p class="text-danger-fg text-sm">{{ error }}</p>
+{% elif items %}
+<ul class="text-sm" data-remote="{{ remote }}" data-bucket="{{ bucket }}" data-date="{{ date }}">
+  {% for item in items %}
+    {% set full_path = (path ~ '/' ~ item.path).rstrip('/') if path else item.path %}
+  <li>
+    <div class="flex items-center gap-2 py-1 hover:bg-app-raised rounded px-1 transition-colors">
+      <input type="checkbox" class="restore-check accent-[var(--brand)]" data-path="{{ full_path }}" {% if item.is_dir %}data-dir="1"{% endif %}>
+      {% if item.is_dir %}
+        {% set node_id = ('tree-' ~ remote ~ ':' ~ full_path) | slug %}
+        <button type="button" class="tree-toggle text-ink-faint hover:text-brand-fg w-4 transition-colors"
+                data-dir="{{ full_path }}" data-id="{{ node_id }}">▸</button>
+        <span class="text-ink font-medium">{{ item.name }}/</span>
+      {% else %}
+        <span class="w-4"></span>
+        <span class="text-ink-muted">{{ item.name }}</span>
+        <span class="text-ink-faint text-xs">{{ item.size | bytes }}</span>
+      {% endif %}
+    </div>
+    {% if item.is_dir %}
+    <div id="{{ node_id }}" class="hidden ml-6"></div>
+    {% endif %}
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="text-ink-faint text-sm">(empty)</p>
+{% endif %}

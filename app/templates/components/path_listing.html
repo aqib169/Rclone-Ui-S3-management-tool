@@ -1,0 +1,37 @@
+{% if error %}
+  <p class="text-danger-fg text-sm">{{ error }}</p>
+{% else %}
+  <div class="text-xs text-ink-faint font-mono mb-1">
+    {{ remote }}:{{ path if path else '/' }}
+  </div>
+  <ul class="max-h-64 overflow-auto divide-y divide-line">
+    {% if path %}
+    <li>
+      <button type="button" class="w-full text-left px-2 py-1 text-sm text-ink hover:bg-app-raised"
+              onclick="document.getElementById('browser-path').value='{{ parent }}';
+                       htmx.ajax('GET','/transfers/listing?remote='+encodeURIComponent('{{ remote }}')+'&path='+encodeURIComponent('{{ parent }}'),{target:'#path-listing'});">
+        ↑ up
+      </button>
+    </li>
+    {% endif %}
+    {% for item in items %}
+    <li>
+      {% if item.is_dir %}
+      <button type="button" class="w-full text-left px-2 py-1 text-sm text-ink hover:bg-app-raised font-medium"
+              onclick="var p='{{ (path ~ '/' ~ item.path) if path else item.path }}';
+                       document.getElementById('browser-path').value=p;
+                       htmx.ajax('GET','/transfers/listing?remote='+encodeURIComponent('{{ remote }}')+'&path='+encodeURIComponent(p),{target:'#path-listing'});">
+        📁 {{ item.name }}
+      </button>
+      {% else %}
+      <div class="flex items-center justify-between px-2 py-1 text-sm">
+        <span class="text-ink-muted truncate">{{ item.name }}</span>
+        <span class="text-ink-faint text-xs">{{ item.size | bytes }}</span>
+      </div>
+      {% endif %}
+    </li>
+    {% else %}
+    <li class="px-2 py-2 text-sm text-ink-faint">(no folders here)</li>
+    {% endfor %}
+  </ul>
+{% endif %}

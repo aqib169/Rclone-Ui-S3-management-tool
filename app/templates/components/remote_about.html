@@ -1,0 +1,15 @@
+{% if not about %}
+  <p class="text-xs text-ink-faint">This backend does not report quota information.</p>
+{% else %}
+  <div class="text-xs space-y-1">
+    <div class="flex justify-between"><span class="text-ink-faint">Total</span>
+      <span class="font-mono text-ink">{{ about.total | bytes }}</span></div>
+    <div class="flex justify-between"><span class="text-ink-faint">Used</span>
+      <span class="font-mono text-ink">{{ about.used | bytes }} ({{ about.used_pct }}%)</span></div>
+    <div class="flex justify-between"><span class="text-ink-faint">Free</span>
+      <span class="font-mono text-ink">{{ about.free | bytes }}</span></div>
+    <div class="h-1.5 w-full bg-app-raised rounded-full overflow-hidden mt-1">
+      <div class="h-full bg-brand rounded-full" style="width: {{ about.used_pct }}%"></div>
+    </div>
+  </div>
+{% endif %}

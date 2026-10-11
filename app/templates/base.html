@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Rclone S3 Management UI{% endblock %}</title>
+  <script>
+    // Theme bootstrap: runs before first paint to avoid a flash of the wrong
+    // theme. Follows the system preference unless the user picked one.
+    (function () {
+      var pref = null;
+      try { pref = localStorage.getItem('gb-theme'); } catch (e) {}
+      var dark = pref === 'dark' ||
+        (!pref && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      if (dark) document.documentElement.classList.add('dark');
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener(
+        'change', function (e) {
+          try { if (localStorage.getItem('gb-theme')) return; } catch (err) { return; }
+          document.documentElement.classList.toggle('dark', e.matches);
+          updateThemeIcon();
+        });
+    })();
+  </script>
+  <link rel="stylesheet" href="/static/vendor/tailwind.css?v={{ asset_version }}">
+  <script src="/static/vendor/htmx.min.js?v={{ asset_version }}"></script>
+  <script>
+    htmx.config.allowScriptTags = true;
+    function toggleTheme() {
+      const dark = document.documentElement.classList.toggle('dark');
+      try { localStorage.setItem('gb-theme', dark ? 'dark' : 'light'); } catch (e) {}
+      updateThemeIcon();
+    }
+    function updateThemeIcon() {
+      const dark = document.documentElement.classList.contains('dark');
+      const sun = document.getElementById('theme-icon-sun');
+      const moon = document.getElementById('theme-icon-moon');
+      if (sun) sun.classList.toggle('hidden', !dark);
+      if (moon) moon.classList.toggle('hidden', dark);
+    }
+    function openModal(url) {
+      const c = document.getElementById('modal-container');
+      htmx.ajax('GET', url, { target: '#modal-body', swap: 'innerHTML' });
+      c.classList.remove('hidden');
+    }
+    function closeModal() {
+      const c = document.getElementById('modal-container');
+      c.classList.add('hidden');
+      document.getElementById('modal-body').innerHTML = '';
+    }
+    document.addEventListener('click', function (e) {
+      if (e.target && e.target.id === 'modal-container') closeModal();
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') {
+        closeModal();
+        const menu = document.getElementById('nav-mobile');
+        if (menu && !menu.classList.contains('hidden')) toggleMobileNav();
+      }
+    });
+    function toggleMobileNav() {
+      const menu = document.getElementById('nav-mobile');
+      const open = document.getElementById('nav-icon-open');
+      const close = document.getElementById('nav-icon-close');
+      if (!menu) return;
+      menu.classList.toggle('hidden');
+      if (open && close) {
+        open.classList.toggle('hidden');
+        close.classList.toggle('hidden');
+      }
+    }
+
+    // Close the mobile nav when a link is clicked or the viewport grows.
+    document.addEventListener('click', function (e) {
+      const link = e.target.closest && e.target.closest('#nav-mobile a');
+      if (link && !link.closest('form')) toggleMobileNav();
+    });
+    window.addEventListener('resize', function () {
+      if (window.innerWidth >= 768) {
+        const menu = document.getElementById('nav-mobile');
+        if (menu && !menu.classList.contains('hidden')) toggleMobileNav();
+      }
+    });
+
+    (function () {
+      const path = window.location.pathname;
+      document.querySelectorAll('.nav-link').forEach(function (a) {
+        const href = a.getAttribute('href');
+        if (path === href || (href && href !== '/' && path.startsWith(href))) {
+          a.classList.add('active');
+          a.setAttribute('aria-current', 'page');
+        }
+      });
+      updateThemeIcon();
+    })();
+
+    // Dashboard quick actions land on /jobs?new=1 or /remotes?new=1 and open
+    // the matching modal automatically.
+    document.addEventListener('DOMContentLoaded', function () {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('new') !== '1') return;
+      if (window.location.pathname === '/jobs') openModal('/jobs/new');
+      else if (window.location.pathname === '/remotes') openModal('/remotes/new');
+    });
+
+    function toggleTree(id, remote, path) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if (el.classList.contains('hidden')) {
+        el.classList.remove('hidden');
+        if (el.dataset.loaded !== '1') {
+          htmx.ajax('GET',
+            '/restore/tree?remote=' + encodeURIComponent(remote) + '&path=' + encodeURIComponent(path),
+            { target: '#' + id, swap: 'innerHTML' });
+          el.dataset.loaded = '1';
+        }
+      } else {
+        el.classList.add('hidden');
+      }
+    }
+
+    function selectSource(remote, path, label) {
+      const full = remote + ':' + (path || '');
+      const input = document.getElementById('restore-source');
+      const lbl = document.getElementById('restore-source-label');
+      if (input) input.value = full;
+      if (lbl) lbl.textContent = label || full;
+    }
+
+    function buildJobTarget(which) {
+      const remote = document.getElementById(which + '-remote');
+      const bucket = document.getElementById(which + '-bucket');
+      const sub = document.getElementById(which + '-subpath');
+      const out = document.getElementById(which);
+      if (!remote || !out) return;
+      let t = remote.value + ':';
+      if (bucket && bucket.value) {
+        t += bucket.value;
+        if (sub && sub.value.trim()) t += '/' + sub.value.trim();
+      } else if (sub && sub.value.trim()) {
+        t += sub.value.trim();
+      }
+      out.value = t;
+    }
+
+    function buildDest() {
+      const remote = document.getElementById('dest-remote');
+      const bucket = document.getElementById('dest-bucket');
+      const sub = document.getElementById('dest-subpath');
+      const out = document.getElementById('restore-dest');
+      const lbl = document.getElementById('restore-dest-label');
+      if (!remote || !out) return;
+      let t = remote.value + ':';
+      if (bucket && bucket.value) {
+        t += bucket.value;
+        if (sub && sub.value.trim()) t += '/' + sub.value.trim();
+      } else if (sub && sub.value.trim()) {
+        t += sub.value.trim();
+      }
+      out.value = t;
+      if (lbl) lbl.textContent = t;
+    }
+
+    function refreshRemoteTable() {
+      if (document.getElementById('remotes-table')) {
+        htmx.ajax('GET', '/remotes/table', { target: '#remotes-table', swap: 'innerHTML' });
+      }
+    }
+
+    // Pagination for list pages (History / Audit): force the target page,
+    // collect the current filter values, and fetch the partial for that page.
+    function pagedReload(url, filtersId, targetId, page) {
+      const values = {};
+      document.querySelectorAll('#' + filtersId + ' [name]').forEach(function (el) {
+        if (el.name) values[el.name] = el.value;
+      });
+      values.page = page; // always request the clicked page
+      const pageInput = document.querySelector('#' + filtersId + ' input[name="page"]');
+      if (pageInput) pageInput.value = page; // keep auto-refresh on this page
+      htmx.ajax('GET', url, { target: '#' + targetId, swap: 'innerHTML', values: values });
+    }
+
+    function openEditRemote(id) {
+      openModal('/remotes/' + id + '/edit');
+    }
+
+    async function testRemote(id) {
+      const el = document.getElementById('test-result');
+      el.textContent = 'Testing...';
+      el.className = 'text-sm mt-2 text-gray-600';
+      try {
+        const res = await fetch('/api/remotes/' + id + '/test', { method: 'POST' });
+        const data = await res.json();
+        if (data.ok) {
+          el.textContent = 'OK' + (data.buckets && data.buckets.length
+            ? ' - buckets: ' + data.buckets.join(', ') : '');
+          el.className = 'text-sm mt-2 text-green-600';
+          if (data.warning) {
+            const w = document.createElement('p');
+            w.className = 'text-xs mt-1 text-amber-600';
+            w.textContent = data.warning;
+            el.appendChild(w);
+          }
+        } else {
+          el.textContent = 'Failed: ' + (data.error || await errMsg(res, data));
+          el.className = 'text-sm mt-2 text-red-600';
+        }
+      } catch (err) {
+        el.textContent = 'Failed: ' + err;
+        el.className = 'text-sm mt-2 text-red-600';
+      }
+    }
+
+    // Read a form control by its name. Form.elements[name] is used rather than
+    // form.name / form.type / form.provider: HTMLFormElement has built-in
+    // properties of those names, which shadow the named control, so
+    // f.type.value threw "Cannot read properties of undefined" and Test First
+    // never ran at all.
+    function formField(form, name) {
+      if (!form) return null;
+      return form.elements && form.elements[name]
+        ? form.elements[name]
+        : form.querySelector('[name="' + name + '"]');
+    }
+    function formValue(form, name, fallback) {
+      const el = formField(form, name);
+      if (!el) return fallback;
+      const v = (el.value || '').trim();
+      return v || fallback;
+    }
+
+    // Path browser: read both controls by id. The previous handler used
+    // this.form.browser_remote, but these inputs are not inside a <form>, so
+    // this.form was null and pressing Enter threw instead of listing anything.
+    function browsePath() {
+      const sel = document.getElementById('browser-remote');
+      const pathEl = document.getElementById('browser-path');
+      const out = document.getElementById('path-listing');
+      const remote = sel ? sel.value : '';
+      if (!remote) {
+        if (out) {
+          out.textContent = 'Pick a remote to browse it.';
+          out.className = 'text-sm text-ink-faint';
+        }
+        return;
+      }
+      htmx.ajax(
+        'GET',
+        '/transfers/listing?remote=' + encodeURIComponent(remote) +
+          '&path=' + encodeURIComponent(pathEl ? pathEl.value : ''),
+        { target: '#path-listing' }
+      );
+    }
+
+    function remoteFormData() {
+      const f = document.getElementById('remote-form');
+      const type = formValue(f, 'type', 's3');
+      // Collect every generated option input (name="opt_<rclone option>").
+      const options = {};
+      f.querySelectorAll('[name^="opt_"]').forEach(function (el) {
+        const key = el.name.slice(4);
+        if (el.type === 'checkbox') {
+          if (el.checked) options[key] = 'true';
+        } else if (el.value.trim()) {
+          options[key] = el.value.trim();
+        }
+      });
+      const data = {
+        name: formValue(f, 'name', ''),
+        type: type,
+        provider: formValue(f, 'provider', 'Other'),
+        endpoint: formValue(f, 'endpoint', ''),
+        access_key: formValue(f, 'access_key', ''),
+        secret_key: formValue(f, 'secret_key', ''),
+        region: (options.region || 'garage'),
+        bucket: formValue(f, 'bucket', ''),
+        options: options
+      };
+      // S3-compatible remotes keep the legacy columns filled in too (the app
+      // shows them in the remotes table and merges them into the rclone config).
+      if (type === 's3') {
+        data.endpoint = options.endpoint || data.endpoint;
+        data.access_key = options.access_key_id || data.access_key;
+        data.secret_key = options.secret_access_key || data.secret_key;
+        data.provider = options.provider || data.provider;
+      }
+      if (type === 'local') {
+        // rclone's local backend has no root option: keep the path in the
+        // legacy endpoint column and drop it from the option map.
+        delete options.endpoint;
+      }
+      return data;
+    }
+
+    // Toggle whether the current settings have been verified. Deliberately
+    // does NOT touch the result text: the test handlers write the message and
+    // then call this with false on failure, so clearing here would wipe the
+    // very error being reported — the user saw nothing at all and Save stayed
+    // disabled. Invalidating on edit is handled by clearRemoteResult().
+    function markRemoteTested(tested) {
+      window.__remoteTested = !!tested;
+      const btn = document.getElementById('remote-save-btn');
+      if (btn) btn.disabled = !tested;
+      // Never leave Save disabled without saying why: that unexplained greyed-out
+      // button was the single most confusing state in this form.
+      const hint = document.getElementById('remote-save-hint');
+      if (hint) {
+        const classes = 'w-full sm:w-auto sm:flex-1';
+        if (tested) {
+          hint.textContent = 'Settings checked — you can save.';
+          hint.className = 'text-xs text-green-700 ' + classes;
+        } else if (hint.textContent.indexOf('changed') === -1) {
+          hint.textContent =
+            'Test First before saving — this checks the settings really work.';
+          hint.className = 'text-xs text-gray-500 ' + classes;
+        }
+      }
+    }
+
+    // Drop a previous result because the form was edited. Called only from the
+    // form's input listener, never from the test handlers.
+    function clearRemoteResult() {
+      const res = document.getElementById('remote-test-result');
+      if (res) { res.textContent = ''; res.className = 'text-sm'; }
+      const save = document.getElementById('remote-save-result');
+      if (save) { save.textContent = ''; save.className = 'text-sm'; }
+    }
+
+    async function testRemoteInline() {
+      const el = document.getElementById('remote-test-result');
+      const f = document.getElementById('remote-form');
+      const id = formValue(f, 'remote_id', '');
+      // When editing and no credential field was filled in, test against the
+      // stored credentials. The credential inputs are the generated
+      // opt_access_key_id / opt_secret_access_key fields, NOT the always-empty
+      // hidden carriers — reading the carriers made every edit test the stored
+      // remote and silently ignore whatever had just been typed.
+      const typed = (sel) => {
+        const el2 = f.querySelector(sel);
+        return el2 ? el2.value.trim() : '';
+      };
+      const type = formValue(f, 'type', 's3');
+      const keyFields = type === 's3'
+        ? ['[name="opt_access_key_id"]', '[name="opt_secret_access_key"]']
+        : [];
+      const anyTyped = keyFields.some(sel => !!typed(sel));
+      const useStored = id && !anyTyped &&
+        !formValue(f, 'access_key', '') && !formValue(f, 'secret_key', '');
+      el.textContent = 'Testing... (this can take up to a minute for a slow endpoint)';
+      el.className = 'text-sm mt-2 text-gray-600';
+      // The server bounds rclone itself, but a network that accepts the
+      // request and never answers would leave this spinning forever with no
+      // message. Abort locally too, and say so.
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 90000);
+      try {
+        let res;
+        if (useStored) {
+          res = await fetch('/api/remotes/' + id + '/test', {
+            method: 'POST', signal: controller.signal
+          });
+        } else {
+          res = await fetch('/api/remotes/test', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(remoteFormData()),
+            signal: controller.signal
+          });
+        }
+        clearTimeout(timer);
+        const data = await res.json();
+        // Always show what the server received, so a length complaint from the
+        // provider can be checked against what was actually sent. A masked
+        // field showing 32 dots can still arrive as 140 characters.
+        if (data.ok) {
+          const buckets = data.buckets && data.buckets.length
+            ? ' buckets: ' + data.buckets.join(', ')
+            : '';
+          el.textContent = 'OK \u2713' + buckets + ' \u2014 ready to save.';
+          el.className = 'text-sm mt-2 text-green-600';
+          if (data.warning) {
+            const w = document.createElement('p');
+            w.className = 'text-xs mt-1 text-amber-600';
+            w.textContent = data.warning;
+            el.appendChild(w);
+          }
+          markRemoteTested(true);
+        } else {
+          el.textContent = 'Failed: ' + (data.error || await errMsg(res, data));
+          el.className = 'text-sm mt-2 text-red-600';
+          markRemoteTested(false);
+        }
+        // Appended last: setting textContent above replaces all children.
+        if (data.received) {
+          const r = document.createElement('p');
+          r.className = 'text-xs mt-1 text-gray-500 font-mono break-all';
+          r.textContent = 'Received \u2014 ' + data.received;
+          el.appendChild(r);
+        }
+      } catch (err) {
+        clearTimeout(timer);
+        // An aborted fetch gives a bare "The user aborted a request", which
+        // says nothing useful; say what actually happened instead.
+        const aborted = err && (err.name === 'AbortError' ||
+          /abort/i.test(String(err.message || err)));
+        el.textContent = aborted
+          ? 'Failed: the request timed out after 90s. The endpoint accepted the ' +
+            'connection but never replied — check the endpoint and that this ' +
+            'container can route to it.'
+          : 'Failed: ' + err;
+        el.className = 'text-sm mt-2 text-red-600';
+        markRemoteTested(false);
+      }
+    }
+
+    async function errMsg(res, data) {
+      let detail;
+      if (data === undefined) {
+        try { data = await res.json(); } catch (e) { /* non-JSON body */ }
+      }
+      if (data) detail = data.detail;
+      if (typeof detail === 'string') return detail;
+      if (Array.isArray(detail)) {
+        return detail.map(function (i) {
+          const where = (i.loc || []).slice(1).join('.');
+          return (where ? where + ': ' : '') + (i.msg || 'invalid value');
+        }).join('; ');
+      }
+      if (detail && typeof detail === 'object') return JSON.stringify(detail);
+      if (data && data.error && typeof data.error === 'string') return data.error;
+      return 'HTTP ' + res.status;
+    }
+
+    async function saveRemote(e) {
+      e.preventDefault();
+      const el = document.getElementById('remote-save-result');
+      const f = document.getElementById('remote-form');
+      const id = formValue(f, 'remote_id', '');
+      if (!window.__remoteTested) {
+        el.textContent = 'Run "Test First" to validate the connection before saving.';
+        el.className = 'text-sm mt-2 text-amber-600';
+        return;
+      }
+      const url = id ? '/api/remotes/' + id : '/api/remotes';
+      const method = id ? 'PUT' : 'POST';
+      try {
+        const res = await fetch(url, {
+          method: method, headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(remoteFormData())
+        });
+        if (res.status === 200 || res.status === 201) {
+          closeModal();
+          const remoteName = formValue(f, 'name', '');
+          showToast((id ? 'Remote updated' : 'Remote added') + (remoteName ? ': ' + remoteName : ''), 'success');
+          if (document.getElementById('remotes-table')) {
+            refreshRemoteTable();
+          } else if (document.getElementById('stats')) {
+            htmx.ajax('GET', '/dashboard/stats', { target: '#stats', swap: 'innerHTML' });
+          }
+        } else {
+          el.textContent = 'Error: ' + await errMsg(res);
+          el.className = 'text-sm mt-2 text-red-600';
+        }
+      } catch (err) {
+        el.textContent = 'Error: ' + err;
+        el.className = 'text-sm mt-2 text-red-600';
+      }
+    }
+
+    async function deleteRemote(id, name) {
+      if (!confirm('Delete remote "' + name + '"?')) return;
+      const el = document.getElementById('test-result');
+      try {
+        const res = await fetch('/api/remotes/' + id, { method: 'DELETE' });
+        if (res.status === 204) {
+          el.textContent = '';
+          refreshRemoteTable();
+        } else {
+          el.textContent = 'Cannot delete: ' + await errMsg(res);
+          el.className = 'text-sm mt-2 text-red-600';
+        }
+      } catch (err) {
+        el.textContent = 'Error: ' + err;
+        el.className = 'text-sm mt-2 text-red-600';
+      }
+    }
+
+    function showToast(message, type) {
+      const c = document.getElementById('toast-container');
+      if (!c) return;
+      const el = document.createElement('div');
+      const style = type === 'error' ? 'bg-danger text-white'
+                  : type === 'success' ? 'bg-ok text-white'
+                  : 'bg-app-surface text-ink border border-line';
+      el.className = style + ' text-sm rounded-lg shadow-lg px-4 py-3 flex items-start justify-between gap-3 animate-[fadein_.2s_ease-out]';
+      el.innerHTML = '<span></span><button type="button" onclick="this.parentElement.remove()" class="opacity-70 hover:opacity-100">\u00d7</button>';
+      el.firstChild.textContent = message;
+      c.appendChild(el);
+      setTimeout(function () { el.remove(); }, 6000);
+    }
+
+    document.addEventListener('htmx:afterRequest', function (e) {
+      const xhr = e.detail.xhr;
+      if (e.detail.failed) {
+        let msg = 'Request failed';
+        try {
+          const d = JSON.parse(xhr.responseText);
+          if (d && d.detail) msg = typeof d.detail === 'string' ? d.detail : JSON.stringify(d.detail);
+        } catch (err) {
+          msg = xhr.responseText || msg;
+        }
+        showToast(msg, 'error');
+      } else if (e.detail.successful && e.detail.elt) {
+        const hint = e.detail.elt.dataset && e.detail.elt.dataset.toastSuccess;
+        if (hint) showToast(hint, 'success');
+      }
+    });
+  </script>
+</head>
+    <body class="min-h-screen flex flex-col antialiased">
+  <nav class="bg-app-surface border-b border-line shadow-sm sticky top-0 z-40">
+    <div class="max-w-6xl mx-auto px-4 h-14 flex items-center gap-x-3">
+      <a href="/" class="flex items-center gap-2 mr-2 group shrink-0">
+        <span class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-brand to-indigo-500 shadow-sm group-hover:from-brand-hover transition-colors">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 text-white"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+        </span>
+        <span class="font-semibold text-base sm:text-lg tracking-tight whitespace-nowrap text-ink">Rclone S3 UI</span>
+      </a>
+      <div class="hidden md:flex gap-x-1 min-w-0">
+        <a href="/" class="nav-link whitespace-nowrap">Dashboard</a>
+        <a href="/transfers" class="nav-link whitespace-nowrap">Transfers</a>
+        <a href="/jobs" class="nav-link whitespace-nowrap">Jobs</a>
+        <a href="/remotes" class="nav-link whitespace-nowrap">Remotes</a>
+        <a href="/restore" class="nav-link whitespace-nowrap">Restore</a>
+        <a href="/history" class="nav-link whitespace-nowrap">History</a>
+        <a href="/audit" class="nav-link whitespace-nowrap">Audit</a>
+        <a href="/settings" class="nav-link whitespace-nowrap">Settings</a>
+        <a href="/guide" class="nav-link whitespace-nowrap">User Guide</a>
+        <a href="/help" class="nav-link whitespace-nowrap">Help</a>
+      </div>
+      <div class="ml-auto flex items-center gap-1.5 shrink-0">
+        <button type="button" onclick="toggleTheme()" aria-label="Toggle dark mode"
+                title="Toggle dark / light theme"
+                class="icon-btn">
+          <svg id="theme-icon-moon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-[18px] h-[18px]"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+          <svg id="theme-icon-sun" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-[18px] h-[18px] hidden"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+        </button>
+        <form method="post" action="/logout" class="hidden md:block">
+          <button type="submit" class="btn btn-secondary btn-sm">Logout</button>
+        </form>
+        <button type="button" onclick="toggleMobileNav()" aria-label="Toggle navigation"
+                class="md:hidden icon-btn">
+          <svg id="nav-icon-open" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="w-5 h-5"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+          <svg id="nav-icon-close" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="w-5 h-5 hidden"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </div>
+    </div>
+    <div id="nav-mobile" class="hidden md:hidden border-t border-line px-4 pt-2 pb-3 space-y-0.5 bg-app-surface">
+      <a href="/" class="nav-link">Dashboard</a>
+      <a href="/transfers" class="nav-link">Transfers</a>
+      <a href="/jobs" class="nav-link">Jobs</a>
+      <a href="/remotes" class="nav-link">Remotes</a>
+      <a href="/restore" class="nav-link">Restore</a>
+      <a href="/history" class="nav-link">History</a>
+      <a href="/audit" class="nav-link">Audit</a>
+      <a href="/settings" class="nav-link">Settings</a>
+      <a href="/guide" class="nav-link">User Guide</a>
+      <a href="/help" class="nav-link">Help</a>
+      <form method="post" action="/logout" class="pt-2 border-t border-line mt-2">
+        <button type="submit" class="w-full text-left px-3 py-2 rounded-lg text-sm font-medium text-danger-fg hover:bg-danger-soft transition-colors">Logout</button>
+      </form>
+    </div>
+  </nav>
+
+  <main class="max-w-6xl w-full mx-auto px-4 py-6 flex-1 w-full">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="border-t border-line py-4">
+    <div class="max-w-6xl mx-auto px-4 text-xs text-ink-faint flex items-center justify-between">
+      <span>Rclone S3 Management UI</span>
+      <span>v{{ app_version }}</span>
+    </div>
+  </footer>
+
+  <div id="modal-container" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-[2px] p-3 sm:p-4">
+    <div class="card shadow-xl w-full max-w-lg sm:max-w-xl max-h-[92vh] overflow-auto">
+      <div class="flex justify-end p-2">
+        <button type="button" onclick="closeModal()" aria-label="Close dialog"
+                class="icon-btn !w-8 !h-8 text-xl leading-none">&times;</button>
+      </div>
+      <div id="modal-body" class="px-4 sm:px-6 pb-6"></div>
+    </div>
+  </div>
+
+  <div id="toast-container" class="fixed top-4 right-4 left-4 sm:left-auto z-[60] space-y-2 sm:w-80 pointer-events-none"></div>
+  <style>@keyframes fadein { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }</style>
+</body>
+</html>

@@ -1,0 +1,113 @@
+{% set done = run.status not in ['pending', 'running'] %}
+{# The bar's width is inline CSS, so whatever lands in it must be a real CSS
+   length. `width: %` and `width: None%` are parse errors ("property value
+   expected") and the browser discards the whole declaration, which leaves the
+   bar at full width and looks like a finished run. app/progress.py always hands
+   over a float, but this partial is swapped in by several routes and by the
+   poller, so coerce here rather than trusting the caller: a missing, null or
+   non-numeric percent becomes 0, and the result is clamped to 0..100. #}
+{% set raw_pct = progress.percent if progress and progress.percent is defined else 0 %}
+{% set pct = (raw_pct | float(0)) | round(1) %}
+{% set pct = [[pct, 0] | max, 100] | min %}
+{# Bar colour follows the run: red on failure, green once it is finished,
+   brand while it is still going. #}
+{% set bar_color = 'bg-danger' if run.status == 'failed' else ('bg-ok' if done else 'bg-brand') %}
+<div class="space-y-3"
+     {% if not done %}
+     {# Poll on the card itself, not on a child. htmx replaces the whole
+        element that issued the request, so a child poller meant each response
+        was grafted INSIDE the previous card - after ten polls the DOM held ten
+        nested cards and ten elements sharing id="progress-label". Self-polling
+        the root replaces the card instead, so the count stays at one. #}
+     hx-get="/runs/{{ run.run_id }}/progress"
+     hx-trigger="every 1s"
+     hx-swap="outerHTML"
+     {% endif %}>
+  <div class="flex items-center justify-between gap-2">
+    <span class="text-sm font-medium text-ink font-mono">{{ run.operation }}</span>
+    {% if run.status == 'success' %}
+      <span class="badge badge-ok"><span class="dot bg-ok"></span>success</span>
+    {% elif run.status == 'failed' %}
+      <span class="badge badge-danger"><span class="dot bg-danger"></span>failed</span>
+    {% elif run.status == 'cancelled' %}
+      <span class="badge badge-warn"><span class="dot bg-warn"></span>cancelled</span>
+    {% elif run.status == 'running' %}
+      <span class="badge badge-brand"><span class="dot bg-brand animate-pulse"></span>running</span>
+    {% else %}
+      <span class="badge badge-brand"><span class="dot bg-brand"></span>{{ run.status }}</span>
+    {% endif %}
+  </div>
+
+  <div class="text-xs text-ink-muted font-mono break-all">
+    {{ run.source }}{% if run.destination %} → {{ run.destination }}{% endif %}
+  </div>
+
+  {# ---------------- bar ---------------- #}
+  <div>
+    <div class="flex justify-between text-xs text-ink-muted mb-1">
+      <span id="progress-label">
+        {% if progress.total_transfers %}
+          {{ progress.transfers }} / {{ progress.total_transfers }} objects
+        {% elif progress.total_checks %}
+          {{ progress.checks }} / {{ progress.total_checks }} checks
+        {% elif done %}
+          {{ progress.files }} objects
+        {% else %}
+          preparing…
+        {% endif %}
+      </span>
+      <span class="font-mono" id="progress-percent">{{ pct }}%</span>
+    </div>
+    <div class="h-2 w-full bg-app-raised rounded-full overflow-hidden">
+      <div class="h-full rounded-full transition-all duration-500 {{ bar_color }}"
+           data-width="{{ pct }}"
+           style="--progress-width: {{ pct }}%; width: var(--progress-width, 0%)"></div>
+    </div>
+  </div>
+
+  {# ---------------- numbers ---------------- #}
+  <dl class="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+    <div class="flex justify-between"><dt class="text-ink-faint">Transferred</dt>
+      <dd class="font-mono text-ink">{{ progress.bytes | bytes }}</dd></div>
+    <div class="flex justify-between"><dt class="text-ink-faint">Total</dt>
+      <dd class="font-mono text-ink">{{ progress.total_bytes | bytes }}</dd></div>
+    <div class="flex justify-between"><dt class="text-ink-faint">Remaining</dt>
+      <dd class="font-mono text-ink">{{ progress.remaining_bytes | bytes }}</dd></div>
+    <div class="flex justify-between"><dt class="text-ink-faint">Speed</dt>
+      <dd class="font-mono text-ink">{{ progress.speed | bytes }}/s</dd></div>
+    <div class="flex justify-between"><dt class="text-ink-faint">ETA</dt>
+      <dd class="font-mono text-ink">
+        {%- if progress.eta -%}
+          {{ (progress.eta | round(0) | int) }}s
+        {%- elif done -%}—
+        {%- else %}calculating…{%- endif -%}
+      </dd></div>
+    <div class="flex justify-between"><dt class="text-ink-faint">Elapsed</dt>
+      <dd class="font-mono text-ink">{{ progress.elapsed | round(1) }}s</dd></div>
+    {% if progress.deletes %}
+    <div class="flex justify-between"><dt class="text-ink-faint">Deleted</dt>
+      <dd class="font-mono text-warn-fg">{{ progress.deletes }} files / {{ progress.deleted_dirs }} dirs</dd></div>
+    {% endif %}
+    {% if progress.errors %}
+    <div class="flex justify-between"><dt class="text-ink-faint">Errors</dt>
+      <dd class="font-mono text-danger-fg">{{ progress.errors }}</dd></div>
+    {% endif %}
+    {% if progress.listed %}
+    <div class="flex justify-between"><dt class="text-ink-faint">Listed</dt>
+      <dd class="font-mono text-ink">{{ progress.listed }}</dd></div>
+    {% endif %}
+  </dl>
+
+  {% if run.status == 'failed' and run.error %}
+    <p class="text-xs text-danger-fg break-words border border-danger-line rounded p-2">{{ run.error }}</p>
+  {% endif %}
+
+  <div class="flex items-center gap-2 pt-1">
+    <a href="/runs/{{ run.run_id }}/log" class="link text-xs">View full log</a>
+    <a href="/history" class="link text-xs">History</a>
+    {% if not done %}
+    <button type="button" hx-post="/runs/{{ run.run_id }}/cancel" hx-swap="none"
+            class="btn btn-danger-outline btn-sm">Cancel</button>
+    {% endif %}
+  </div>
+</div>

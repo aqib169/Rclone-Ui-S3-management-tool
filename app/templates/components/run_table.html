@@ -1,0 +1,54 @@
+<div class="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+  <table class="data-table min-w-[820px]">
+    <thead>
+      <tr>
+        <th>Run</th>
+        <th>Kind</th>
+        <th>Source → Destination</th>
+        <th>Status</th>
+        <th>Started</th>
+        <th>Finished</th>
+        <th class="!text-right">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for run in runs %}
+      <tr>
+        <td><code>{{ run.run_id[:8] }}</code></td>
+        <td><span class="badge {{ 'badge-brand' if run.kind == 'backup' else 'badge-ok' }}">{{ run.kind }}</span></td>
+        <td class="text-ink-muted max-w-[20rem] truncate">{{ run.source }} <span class="text-ink-faint">→</span> {{ run.destination }}</td>
+        <td>
+          {% if run.status == 'success' %}<span class="badge badge-ok"><span class="dot bg-ok"></span>success</span>
+          {% elif run.status == 'failed' %}<span class="badge badge-danger"><span class="dot bg-danger"></span>failed</span>
+          {% elif run.status == 'running' %}<span class="badge badge-warn"><span class="dot bg-warn animate-pulse"></span>running</span>
+          {% elif run.status == 'pending' %}<span class="badge badge-brand"><span class="dot bg-brand"></span>pending</span>
+          {% else %}<span class="badge badge-neutral">{{ run.status }}</span>{% endif %}
+        </td>
+        <td class="text-ink-faint whitespace-nowrap">{{ run.started_at | dt }}</td>
+        <td class="text-ink-faint whitespace-nowrap">{{ run.finished_at | dt }}</td>
+        <td class="text-right whitespace-nowrap">
+          <a href="/runs/{{ run.run_id }}/log" class="btn btn-ghost btn-sm">Log</a>
+          {% if run.status in ['running','pending'] %}
+          <button type="button"
+                  hx-post="/runs/{{ run.run_id }}/cancel"
+                  hx-swap="none"
+                  data-toast-success="Cancelled"
+                  hx-confirm="Cancel this {{ run.kind }}?"
+                  class="btn btn-danger-outline btn-sm ml-1.5">Cancel</button>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% if not runs %}
+  <div class="card border-dashed p-10 text-center">
+    <div class="mx-auto w-10 h-10 rounded-full bg-app-raised flex items-center justify-center mb-3">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-5 h-5 text-ink-faint"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg>
+    </div>
+    <p class="text-ink font-medium">No runs found</p>
+    <p class="text-sm text-ink-muted mt-1">Run a job from the Jobs page or wait for a scheduled backup.</p>
+  </div>
+  {% endif %}
+  {% include "components/pagination.html" %}
+</div>

@@ -1,0 +1,123 @@
+<form hx-post="/transfers/run" hx-target="#transfer-progress" hx-swap="innerHTML" class="space-y-4">
+  <div>
+    <h2 class="text-sm font-semibold text-ink">2 · {{ op.label }}</h2>
+    <p class="text-sm text-ink-muted mt-1">{{ op.description }}</p>
+    {% if op.note %}
+    <p class="text-xs text-warn-fg mt-1">{{ op.note }}</p>
+    {% endif %}
+    <input type="hidden" name="operation" value="{{ op.name }}">
+  </div>
+
+  {% if op.needs_source %}
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+    <label class="block text-xs text-ink-muted">
+      Source remote
+      <select class="input" name="source_remote" required
+              hx-get="/transfers/buckets"
+              hx-target="#src-buckets"
+              hx-swap="innerHTML"
+              hx-trigger="change">
+        <option value="">— select —</option>
+        {% for r in remotes %}<option value="{{ r.name }}">{{ r.name }}</option>{% endfor %}
+      </select>
+    </label>
+    <label class="block text-xs text-ink-muted">
+      Bucket / container
+      <select class="input" name="source_bucket" id="src-buckets"
+              hx-get="/transfers/buckets" hx-trigger="change">
+        <option value="">(root)</option>
+      </select>
+    </label>
+    <label class="block text-xs text-ink-muted">
+      Path
+      <input class="input font-mono" name="source_path" placeholder="folder/subfolder">
+    </label>
+  </div>
+  {% endif %}
+
+  {% if op.needs_destination %}
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+    <label class="block text-xs text-ink-muted">
+      Destination remote
+      <select class="input" name="dest_remote" required
+              hx-get="/transfers/buckets"
+              hx-target="#dst-buckets"
+              hx-swap="innerHTML"
+              hx-trigger="change">
+        <option value="">— select —</option>
+        {% for r in remotes %}<option value="{{ r.name }}">{{ r.name }}</option>{% endfor %}
+      </select>
+    </label>
+    <label class="block text-xs text-ink-muted">
+      Bucket / container
+      <select class="input" name="dest_bucket" id="dst-buckets">
+        <option value="">(root)</option>
+      </select>
+    </label>
+    <label class="block text-xs text-ink-muted">
+      Path
+      <input class="input font-mono" name="dest_path" placeholder="folder/subfolder">
+    </label>
+  </div>
+  {% endif %}
+
+  {% if flag_groups %}
+  <details class="border border-line rounded-lg p-3">
+    <summary class="text-sm font-medium text-ink cursor-pointer">3 · Options (rclone flags)</summary>
+    <div class="mt-3 space-y-4">
+      {% for group in flag_groups %}
+      <div>
+        <p class="text-xs uppercase tracking-wide text-ink-faint mb-2">{{ group.group }}</p>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {% for flag in group.flags %}
+            {% if flag.type == 'bool' %}
+            <label class="flex items-center gap-2 text-sm text-ink">
+              <input type="checkbox" class="accent-[var(--brand)]" name="flag_{{ flag.name }}" value="true">
+              <span>{{ flag.label }}</span>
+            </label>
+            {% elif flag.type == 'enum' and flag.choices %}
+            <label class="block text-xs text-ink-muted">
+              {{ flag.label }}
+              <select class="input" name="flag_{{ flag.name }}">
+                <option value="">(default)</option>
+                {% for choice in flag.choices %}
+                <option value="{{ choice }}" {% if flag.default == choice %}selected{% endif %}>{{ choice }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            {% else %}
+            <label class="block text-xs text-ink-muted" title="{{ flag.help }}">
+              {{ flag.label }}
+              <input class="input font-mono" name="flag_{{ flag.name }}"
+                     placeholder="{{ flag.placeholder }}"
+                     {% if flag.type == 'int' %}inputmode="numeric"{% endif %}>
+              <span class="text-ink-faint text-[11px]">{{ flag.help }}</span>
+            </label>
+            {% endif %}
+          {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </details>
+  {% endif %}
+
+  {% if op.destructive %}
+  <label class="flex items-start gap-2 text-sm text-danger-fg border border-danger-line rounded-lg p-3">
+    <input type="checkbox" name="confirmed" value="true" class="mt-0.5 accent-[var(--danger)]">
+    <span>
+      This operation <strong>changes or removes data</strong>. Tick to confirm, or run
+      <em>Dry run</em> in Options first to see exactly what it would do.
+    </span>
+  </label>
+  {% endif %}
+
+  <div class="flex items-center gap-2">
+    <button type="submit" class="btn {% if op.destructive %}btn-danger{% else %}btn-primary{% endif %}">
+      Run {{ op.label }}
+    </button>
+    <span class="text-xs text-ink-faint">
+      Prefer to be safe? Tick <em>Dry run</em> in Options.
+    </span>
+  </div>
+</form>

@@ -1,0 +1,23 @@
+{% if show_pagination and pages is defined and pages > 1 %}
+<div class="flex flex-col-reverse sm:flex-row items-center justify-between gap-2 mt-3 text-sm text-ink-muted">
+  <span>{{ total }} entr{{ 'y' if total == 1 else 'ies' }} · page {{ page }} of {{ pages }}</span>
+  <div class="flex gap-2 w-full sm:w-auto">
+    {% if page > 1 %}
+    <button type="button"
+            onclick="pagedReload('{{ pagination_url }}','{{ filters_id }}','{{ table_id }}',{{ page - 1 }})"
+            class="btn btn-secondary btn-sm flex-1 sm:flex-none">← Prev</button>
+    {% else %}
+    <button type="button" disabled
+            class="btn btn-secondary btn-sm flex-1 sm:flex-none opacity-40">← Prev</button>
+    {% endif %}
+    {% if page < pages %}
+    <button type="button"
+            onclick="pagedReload('{{ pagination_url }}','{{ filters_id }}','{{ table_id }}',{{ page + 1 }})"
+            class="btn btn-secondary btn-sm flex-1 sm:flex-none">Next →</button>
+    {% else %}
+    <button type="button" disabled
+            class="btn btn-secondary btn-sm flex-1 sm:flex-none opacity-40">Next →</button>
+    {% endif %}
+  </div>
+</div>
+{% endif %}

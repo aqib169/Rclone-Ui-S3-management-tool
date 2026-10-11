@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}History · Rclone S3 UI{% endblock %}
+{% block content %}
+<h1 class="text-xl sm:text-2xl font-semibold mb-4 text-ink">History</h1>
+
+<div id="history-filters" class="flex flex-wrap gap-3 mb-4">
+  <input type="hidden" name="page" id="history-page" value="{{ page }}">
+  <select name="kind"
+          hx-get="/history/partial" hx-trigger="change" hx-include="#history-filters"
+          hx-target="#run-table" hx-swap="innerHTML"
+          onchange="document.getElementById('history-page').value='1'"
+          class="input !w-auto min-w-[140px] cursor-pointer">
+    <option value="">All kinds</option>
+    <option value="backup" {% if kind == 'backup' %}selected{% endif %}>backup</option>
+    <option value="restore" {% if kind == 'restore' %}selected{% endif %}>restore</option>
+  </select>
+  <select name="status"
+          hx-get="/history/partial" hx-trigger="change" hx-include="#history-filters"
+          hx-target="#run-table" hx-swap="innerHTML"
+          onchange="document.getElementById('history-page').value='1'"
+          class="input !w-auto min-w-[140px] cursor-pointer">
+    <option value="">All statuses</option>
+    <option value="success" {% if status == 'success' %}selected{% endif %}>success</option>
+    <option value="failed" {% if status == 'failed' %}selected{% endif %}>failed</option>
+    <option value="running" {% if status == 'running' %}selected{% endif %}>running</option>
+    <option value="pending" {% if status == 'pending' %}selected{% endif %}>pending</option>
+    <option value="cancelled" {% if status == 'cancelled' %}selected{% endif %}>cancelled</option>
+  </select>
+</div>
+
+<div id="run-table" hx-get="/history/partial" hx-trigger="every 3s" hx-include="#history-filters" hx-swap="innerHTML">
+  {% include "components/run_table.html" %}
+</div>
+{% endblock %}

@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}Dashboard · Rclone S3 UI{% endblock %}
+{% block content %}
+<h1 class="text-xl sm:text-2xl font-semibold mb-1 text-ink">Dashboard</h1>
+<p class="text-sm text-ink-muted mb-6">
+  This app copies files between places you store them, on a schedule or on demand.
+</p>
+
+{# ------------------------------------------------------- getting started
+   Shown until there is a backup job, so a new user is told what the app is for
+   and which button to press first, in order. Once a job exists the card is
+   replaced by the usual three actions — by then the words "remote" and "job"
+   have been met in context. #}
+{% if not job_count %}
+{% set steps = [
+  ('Add a place to back up to', 'remotes',
+   'A "remote" is somewhere your files live — Cloudflare R2, Amazon S3, a Garage server on your network, a local folder, or an FTP/SFTP server.',
+   remote_count > 0),
+  ('Create a backup job', 'jobs',
+   'A job says what to copy, where to put it, and when to run. You can run it once straight away to check it works.',
+   false),
+  ('Watch it run', 'history',
+   'Every run is recorded with how long it took, how much moved, and anything that went wrong.',
+   false)
+] %}
+<section class="card p-5 mb-6">
+  <h2 class="text-base font-semibold text-ink mb-1">Getting started</h2>
+  <p class="text-sm text-ink-muted mb-4">Three steps, in this order.</p>
+  <ol class="space-y-4">
+    {% for title, target, blurb, done in steps %}
+    <li class="flex gap-3">
+      <span class="shrink-0 w-6 h-6 rounded-full grid place-items-center text-xs font-semibold
+                   {% if done %}bg-ok text-white{% else %}bg-app-raised text-ink-muted{% endif %}">
+        {% if done %}✓{% else %}{{ loop.index }}{% endif %}
+      </span>
+      <div class="min-w-0">
+        <p class="text-sm font-medium text-ink">
+          {{ title }}
+          {% if done %}<span class="text-xs text-ok-fg font-normal"> — done</span>{% endif %}
+        </p>
+        <p class="text-sm text-ink-muted">{{ blurb }}</p>
+        <a href="/{{ target }}" class="text-sm text-brand-fg hover:underline inline-block">
+          {{ 'View' if done else 'Start here' }} →
+        </a>
+      </div>
+    </li>
+    {% endfor %}
+  </ol>
+  <p class="text-xs text-ink-faint mt-4 pt-2 border-t border-line">
+    Not sure what a "remote" is? It's just a name this app uses for somewhere
+    your files are stored — a bucket, a share, or a folder on disk.
+  </p>
+</section>
+<div class="flex flex-wrap gap-3 mb-6">
+  <a href="/jobs?new=1"
+     class="btn btn-primary flex-1 min-w-[140px] sm:flex-none">New Backup Job</a>
+  <a href="/remotes?new=1"
+     class="btn btn-secondary flex-1 min-w-[140px] sm:flex-none">Add Remote</a>
+  <a href="/restore"
+     class="btn btn-secondary flex-1 min-w-[140px] sm:flex-none">Restore…</a>
+  <a href="/transfers"
+     class="btn btn-secondary flex-1 min-w-[140px] sm:flex-none">Transfer Console</a>
+</div>
+{% endif %}
+
+<div id="stats" hx-get="/dashboard/stats" hx-trigger="load, every 10s" hx-swap="innerHTML">
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+    {% for i in range(4) %}
+    <div class="card p-4 animate-pulse">
+      <div class="h-3 w-16 bg-app-raised rounded mb-3"></div>
+      <div class="h-7 w-24 bg-app-raised rounded"></div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="mt-8">
+  <h2 class="text-base font-medium mb-3 text-ink">Active transfers</h2>
+  <div id="active-runs" hx-get="/dashboard/active" hx-trigger="load, every 3s" hx-swap="innerHTML">
+    <div class="card p-4 animate-pulse">
+      <div class="h-3 w-40 bg-app-raised rounded mb-3"></div>
+      <div class="h-3 w-full bg-app-raised rounded"></div>
+    </div>
+  </div>
+</div>
+{% endblock %}

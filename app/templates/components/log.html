@@ -1,0 +1,10 @@
+<div class="flex items-center justify-between mb-2">
+  <span class="text-sm font-medium text-ink">Run <code>{{ run.run_id }}</code>
+    <span class="ml-2 text-xs text-ink-faint">status: {{ run.status }}</span>
+  </span>
+  {% if run.status in ['running','pending'] %}
+  <button type="button" hx-get="/runs/{{ run.run_id }}/log/partial" hx-target="#log-body" hx-swap="innerHTML"
+          class="btn btn-ghost btn-sm">Refresh</button>
+  {% endif %}
+</div>
+<pre class="terminal max-h-[70vh]">{{ content }}</pre>

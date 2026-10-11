@@ -1,0 +1,45 @@
+{% if runs %}
+<ul class="card divide-y divide-line overflow-hidden">
+  {% for run in runs %}
+  <li class="flex flex-wrap sm:flex-nowrap items-center justify-between gap-3 px-4 py-3 hover:bg-app-raised transition-colors">
+    <div class="min-w-0">
+      <div class="font-medium flex items-center gap-2 flex-wrap">
+        <span class="badge {{ 'badge-brand' if run.kind == 'backup' else 'badge-ok' }}">{{ run.kind }}</span>
+        <span class="truncate max-w-[16rem] text-ink-muted">{{ run.source }}</span>
+        <span class="text-ink-faint">→</span>
+        <span class="truncate max-w-[16rem] text-ink-muted">{{ run.destination }}</span>
+      </div>
+      <div class="text-xs text-ink-faint mt-0.5 flex items-center gap-1.5 flex-wrap">
+        {% if run.status == 'running' %}
+        <span class="badge badge-warn"><span class="dot bg-warn animate-pulse"></span>running</span>
+        {% else %}
+        <span class="badge badge-brand"><span class="dot bg-brand"></span>{{ run.status | upper }}</span>
+        {% endif %}
+        {% if run.job_id %}<span>· job #{{ run.job_id }}</span>{% endif %}
+        {% if run.started_at %}<span>· started {{ run.started_at | dt }}</span>{% endif %}
+      </div>
+      {# Real progress, not just a badge: this list is where a long backup is
+         watched, and a status badge cannot distinguish 2% from 98%. Rendered
+         by the route from progress_for(); the list itself refreshes every 3s. #}
+      <div class="max-w-md">
+        {% with progress = progress_map.get(run.run_id) if progress_map else None %}
+          {% include "components/progress_slim.html" %}
+        {% endwith %}
+      </div>
+    </div>
+    <div class="flex items-center gap-2 shrink-0">
+      <a href="/runs/{{ run.run_id }}/log" class="btn btn-ghost btn-sm">Log</a>
+      <button type="button"
+              hx-post="/runs/{{ run.run_id }}/cancel"
+              hx-swap="none"
+              hx-confirm="Cancel this {{ run.kind }}?"
+              class="btn btn-danger-outline btn-sm">Cancel</button>
+    </div>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="text-ink-muted text-sm card p-6 text-center">
+  No active transfers.
+</p>
+{% endif %}

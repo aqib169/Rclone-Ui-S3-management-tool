@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Remotes · Rclone S3 UI{% endblock %}
+{% block content %}
+<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+  <h1 class="text-xl sm:text-2xl font-semibold text-ink">Remotes</h1>
+  <button type="button" onclick="openModal('/remotes/new')"
+          class="btn btn-primary">Add Remote</button>
+</div>
+
+<div id="remotes-table">
+  {% include "components/remote_table.html" %}
+</div>
+
+<div id="test-result" class="mt-4"></div>
+{% endblock %}

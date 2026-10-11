@@ -1,0 +1,156 @@
+{% set current_type = (remote.type if remote else 's3') %}
+{% set cur_opts = options if options else {} %}
+<form id="remote-form" onsubmit="saveRemote(event)" class="space-y-4">
+  <input type="hidden" name="remote_id" value="{{ remote.id if remote else '' }}">
+  <input type="hidden" name="provider" id="rf-provider" value="{{ remote.provider if remote else 'Other' }}">
+
+  <div>
+    <label class="block text-sm font-medium text-gray-700">Name</label>
+    <input type="text" name="name" required pattern="[a-z0-9_-]+" maxlength="64"
+           value="{{ remote.name if remote else '' }}"
+           title="lowercase letters, digits, - or _"
+           class="mt-1 w-full border border-gray-300 rounded px-3 py-2 text-sm">
+    <p class="text-xs text-gray-400 mt-1">lowercase letters, digits, <code>-</code> or <code>_</code></p>
+  </div>
+
+  {# ---------------- backend picker: every rclone backend ---------------- #}
+  <div>
+    <label class="block text-sm font-medium text-gray-700" for="rf-type-search">Backend</label>
+    {% set backend_choices = [] %}
+    {% for p in providers %}
+      {% if not p.hidden %}
+        {% set _ = backend_choices.append({'value': p.name, 'help': p.description ~ (' · ' ~ p.tier ~ (' (wrapper)' if p.wrapper else ''))}) %}
+      {% endif %}
+    {% endfor %}
+    <div class="rf-combo mt-1" data-combo="type">
+      <input type="text" id="rf-type-search" class="rf-combo-input" role="combobox"
+             aria-expanded="false" aria-autocomplete="list" autocomplete="off"
+             placeholder="Type to search {{ providers | length }} backends… e.g. s3, r2, b2, sftp, gcs"
+             value="{{ current_type }}">
+      <ul class="rf-combo-list" role="listbox" hidden>
+        {% for c in backend_choices %}
+        <li role="option" data-value="{{ c.value }}" {% if c.value == current_type %}class="is-selected"{% endif %}>
+          <span class="cmb-value">{{ c.value }}</span>
+          <span class="cmb-help">{{ c.help }}</span>
+        </li>
+        {% endfor %}
+      </ul>
+      <input type="hidden" name="type" value="{{ current_type }}">
+      <p class="rf-combo-hint" hidden></p>
+    </div>
+    <p class="text-xs text-gray-400 mt-1" id="rf-type-hint">
+      The fields below are generated from the installed rclone version.
+    </p>
+  </div>
+
+  {# Fields for the selected backend. Rendered by loadBackendFields() from the
+     rclone catalogue: the essentials first, everything else behind a searchable
+     "Advanced options" panel, with provider presets filling sensible defaults. #}
+  <div id="rf-fields" class="space-y-3"></div>
+
+  {# No separate Access Key / Secret Key fields: for every backend the generated
+     options already include the right credential inputs (access_key_id /
+     secret_access_key for s3, account/key for b2, host/user/pass for sftp, …).
+     Showing them again here was the duplicate pair in the old form. #}
+  <input type="hidden" name="access_key" value="">
+  <input type="hidden" name="secret_key" value="">
+  <input type="hidden" name="region" value="">
+
+  <div id="remote-test-result" class="text-sm"></div>
+  <div id="remote-save-result" class="text-sm"></div>
+
+  <div class="flex justify-between items-center pt-2">
+    <button type="button" onclick="testRemoteInline()"
+            class="px-4 py-2 text-sm border border-gray-300 rounded text-gray-700 hover:bg-gray-50">Test First</button>
+    <div class="flex flex-wrap items-center gap-3">
+      <button type="button" onclick="closeModal()"
+              class="px-4 py-2 text-sm border border-gray-300 rounded text-gray-600">Cancel</button>
+      <button type="submit" id="remote-save-btn" disabled
+              class="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed">Save</button>
+      {# A disabled button with no explanation was the single most confusing
+         state in this form, so the reason is always spelled out beside it. #}
+      <p id="remote-save-hint" class="text-xs text-gray-500 w-full sm:w-auto sm:flex-1">
+        Test First before saving — this checks the settings really work.
+      </p>
+    </div>
+  </div>
+</form>
+
+<style>
+/* Searchable combo box + the essentials/advanced split of the remote form.
+   Scoped to the modal and kept in plain CSS so it works in both themes without
+   a Tailwind rebuild.
+
+   The option list is deliberately *in flow* (not absolute): the modal panel is
+   `overflow-auto`, so an absolutely-positioned list is clipped by it and the
+   dropdown looks like it never opened. Pushing the content down instead keeps
+   every option reachable inside the scrollable panel. */
+.rf-combo { position: relative; }
+.rf-combo-input-wrap { position: relative; display: block; }
+.rf-combo-input {
+  width: 100%; border: 1px solid #d1d5db; border-radius: 0.375rem;
+  padding: 0.5rem 2rem 0.5rem 0.75rem; font-size: 0.875rem;
+  background: #fff; color: #111827; cursor: pointer;
+}
+.dark .rf-combo-input { background: #1f2937; border-color: #374151; color: #f3f4f6; }
+.rf-combo-input:focus { outline: 2px solid var(--brand); outline-offset: 1px; border-color: var(--brand); }
+.rf-combo-caret {
+  position: absolute; right: 0.55rem; top: 50%; transform: translateY(-50%);
+  pointer-events: none; color: #6b7280; font-size: 0.7rem;
+}
+.rf-combo[data-open="1"] .rf-combo-caret { transform: translateY(-50%) rotate(180deg); }
+.rf-combo-list {
+  margin-top: 4px; max-height: 14rem; overflow-y: auto;
+  background: #fff; border: 1px solid #d1d5db; border-radius: 0.375rem;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12); padding: 0.25rem;
+}
+.dark .rf-combo-list { background: #1f2937; border-color: #374151; }
+.rf-combo-list[hidden] { display: none; }
+.rf-combo-list li {
+  display: flex; flex-direction: column; padding: 0.35rem 0.5rem;
+  border-radius: 0.25rem; cursor: pointer;
+}
+.rf-combo-list li:hover, .rf-combo-list li.is-active { background: #f3f4f6; }
+.dark .rf-combo-list li:hover, .dark .rf-combo-list li.is-active { background: #374151; }
+.rf-combo-list li.is-selected .cmb-value { font-weight: 600; }
+.rf-combo-list li[hidden] { display: none; }
+.rf-combo-empty { padding: 0.4rem 0.5rem; font-size: 0.75rem; color: #6b7280; }
+.cmb-value { font-size: 0.8125rem; color: #111827; }
+.dark .cmb-value { color: #f3f4f6; }
+.cmb-help { font-size: 0.6875rem; color: #6b7280; }
+/* "show" toggle on credential fields, so a wrong paste is visible instead of
+   being hidden behind dots. Positioned inside the input. */
+.rf-field { position: relative; }
+/* Room on the right for the button. Declared here rather than as a utility
+   because the compiled sheet is purged and has no pr-* classes at all. */
+input.rf-secret { padding-right: 4.5rem; }
+.rf-reveal-btn {
+  position: absolute; right: 0.4rem; top: 1.55rem;
+  font-size: 0.6875rem; color: #4b5563; background: #f3f4f6;
+  border: 1px solid #d1d5db; border-radius: 0.25rem; padding: 0 0.4rem;
+  cursor: pointer;
+}
+.rf-reveal-btn:hover { background: #e5e7eb; }
+.rf-combo-hint { font-size: 0.6875rem; color: #b45309; margin-top: 0.25rem; }
+.rf-field[hidden] { display: none; }
+</style>
+<script src="/static/js/remote-form.js?v={{ asset_version }}"></script>
+<script>
+// Thin bootstrap. htmx re-executes this on every open of the modal, so it must
+// stay small and declare nothing at the top level. The 542 lines of logic now
+// live in /static/js/remote-form.js, which is fetched once per page and linted
+// by `npm run lint` — so there is no redeclaration hazard to defend against.
+(function () {
+  if (window.RemoteForm) {
+    window.RemoteForm.init({
+      values: {{ (cur_opts | tojson) }},
+      {% if remote %}
+      remoteType: {{ remote.type | tojson }},
+      {% if remote.type == 'local' %}
+      endpoint: {{ remote.endpoint | tojson }},
+      {% endif %}
+      {% endif %}
+    });
+  }
+})();
+</script>

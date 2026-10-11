@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% block title %}Run {{ run.run_id[:8] }} · Rclone S3 UI{% endblock %}
+{% block content %}
+<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+  <h1 class="text-xl sm:text-2xl font-semibold text-ink">Run log</h1>
+  <a href="/history" class="btn btn-secondary btn-sm">← Back to history</a>
+</div>
+
+<div class="card p-4 mb-4 text-sm">
+  <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
+    <span><span class="text-ink-muted">Kind:</span> {{ run.kind }}</span>
+    <span><span id="run-status">{{ run.status }}</span></span>
+    <span><span class="text-ink-muted">Exit:</span> {{ run.exit_code if run.exit_code is not none else '—' }}</span>
+    {% if run.status in ['running','pending'] %}
+    <button type="button" hx-post="/runs/{{ run.run_id }}/cancel" hx-swap="none"
+            data-toast-success="Cancelled"
+            class="btn btn-danger-outline btn-sm ml-auto">Cancel</button>
+    {% endif %}
+  </div>
+  <div class="mt-1.5 text-ink-muted font-mono break-all text-xs sm:text-sm">{{ run.source }} <span class="text-ink-faint">→</span> {{ run.destination }}</div>
+</div>
+
+<div id="log-done" class="hidden mb-4 p-3 rounded-xl border border-ok-line bg-ok-soft text-ok-fg text-sm">
+  Run finished. The stream has closed.
+</div>
+
+<pre id="log-lines" class="terminal max-h-[60vh] sm:max-h-[70vh]">
+{{ content }}{% if content %}
+
+
+{% endif %}</pre>
+
+<div id="progress-wrap" class="hidden card p-4 mb-4">
+  <div class="flex justify-between text-sm mb-1">
+    <span class="text-ink-muted font-medium">Transfer</span>
+    <span id="progress-label" class="text-ink font-mono">0%</span>
+  </div>
+  <div class="h-2 w-full bg-app-raised rounded-full overflow-hidden">
+    <div id="progress-bar" class="h-full bg-brand rounded-full transition-all duration-300" style="width:0%"></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const pre = document.getElementById('log-lines');
+  const statusEl = document.getElementById('run-status');
+  const doneEl = document.getElementById('log-done');
+  const progressWrap = document.getElementById('progress-wrap');
+  const progressBar = document.getElementById('progress-bar');
+  const progressLabel = document.getElementById('progress-label');
+  const isTerminal = {{ 'true' if run.status in ['success','failed','cancelled'] else 'false' }};
+  let closed = isTerminal;
+
+  function colorClass(line) {
+    // Theme-aware token classes: red for errors/conflicts, amber for
+    // warnings/notices, green for transferred files, ink for everything else.
+    if (line.indexOf('ERROR') !== -1 || line.indexOf('Failed') !== -1) return 'text-danger-fg';
+    if (line.indexOf('NOTICE') !== -1 || line.indexOf('WARNING') !== -1) return 'text-warn-fg';
+    if (line.indexOf('Copied') !== -1 || line.indexOf('Synced') !== -1 ||
+        line.indexOf('Deleted') !== -1 || line.indexOf('Pruned') !== -1) return 'text-ok-fg';
+    return 'text-ink';
+  }
+
+  function colorizeExisting() {
+    const nodes = pre.childNodes;
+    const replacements = [];
+    for (let i = 0; i < nodes.length; i++) {
+      const node = nodes[i];
+      if (node.nodeType !== 3) continue;
+      const text = node.nodeValue;
+      if (text.trim() === '') continue;
+      const div = document.createElement('div');
+      div.className = colorClass(text);
+      div.textContent = text;
+      replacements.push([node, div]);
+    }
+    for (const [oldNode, div] of replacements) {
+      pre.replaceChild(div, oldNode);
+    }
+  }
+
+  function appendLine(line) {
+    const div = document.createElement('div');
+    div.className = colorClass(line);
+    div.textContent = line;
+    pre.appendChild(div);
+    pre.scrollTop = pre.scrollHeight;
+  }
+
+  function setProgress(percent) {
+    if (!progressWrap || !progressBar || !progressLabel) return;
+    const p = Math.max(0, Math.min(100, Math.round(percent)));
+    progressWrap.classList.remove('hidden');
+    progressBar.style.width = p + '%';
+    progressLabel.textContent = p + '%';
+  }
+
+  function parseProgress(line) {
+    const m = line.match(/[\d.]+\s+\S+\s*\/\s*[\d.]+\s+\S+,\s*(\d+)%/);
+    if (m) setProgress(parseInt(m[1], 10));
+  }
+
+  colorizeExisting();
+  if (isTerminal) {
+    doneEl.classList.remove('hidden');
+    return;
+  }
+
+  const es = new EventSource('/runs/{{ run.run_id }}/log/stream');
+  es.addEventListener('message', function (e) {
+    let d;
+    try { d = JSON.parse(e.data); } catch (err) { return; }
+    if (d.line !== undefined) {
+      appendLine(d.line);
+      parseProgress(d.line);
+    } else if (d.status !== undefined && statusEl) statusEl.textContent = d.status;
+  });
+  es.addEventListener('done', function () {
+    es.close();
+    closed = true;
+    if (progressWrap) progressWrap.classList.add('hidden');
+    if (doneEl) doneEl.classList.remove('hidden');
+  });
+  es.onerror = function () {
+    es.close();
+    if (!closed && doneEl) {
+      doneEl.classList.remove('hidden');
+      doneEl.classList.remove('bg-ok-soft', 'border-ok-line', 'text-ok-fg');
+      doneEl.classList.add('bg-warn-soft', 'border-warn-line', 'text-warn-fg');
+      doneEl.textContent = 'Live stream disconnected — refresh to reload the log.';
+    }
+  };
+})();
+</script>
+{% endblock %}

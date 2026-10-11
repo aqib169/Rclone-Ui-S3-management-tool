@@ -1,0 +1,39 @@
+# Keep the Docker build context small and secret-free.
+#
+# Only requirements.txt, app/ and entrypoint.sh are COPYed by the Dockerfile, so
+# none of this reaches the final image. It is excluded anyway because without it
+# the whole tree — including .venv/ (66M), .git/, node_modules/ and the data/
+# directory holding .encryption_key and .session_secret — is uploaded to the
+# daemon on every single build.
+
+# Version control
+.git/
+.gitignore
+
+# Python
+.venv/
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+*.egg-info/
+
+# Node dev toolchain (the image has no Node runtime; CSS ships pre-built)
+node_modules/
+package.json
+package-lock.json
+
+# Runtime state — contains the Fernet key, session secret and the SQLite DB
+data/
+
+# Secrets / local env
+.env
+rclone.conf/
+missing-dst.txt
+
+# Docs and dev-only sources not needed to build or run the app
+*.md
+tests/
+tailwind.config.js
+tailwind.input.css

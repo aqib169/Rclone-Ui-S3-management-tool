@@ -1,0 +1,517 @@
+{% extends "base.html" %}
+{% block title %}User Guide · Rclone S3 UI{% endblock %}
+{% block content %}
+{#
+  Interactive user guide — a worked example of each core workflow.
+
+  Everything here is a DEMO: the forms are inert (they post nowhere, run no
+  rclone, and never touch the database). They exist so a new user can see what
+  the real screen looks like and what each field means before touching real
+  credentials. Every demo that mirrors a real screen links to that screen.
+
+  Utility classes are checked against the compiled tailwind.css — that sheet is
+  purged, so a class no template used before is simply absent and would render
+  unstyled with no error at all.
+#}
+<div class="mb-6">
+  <h1 class="text-2xl font-semibold mb-1">User Guide</h1>
+  <p class="text-sm text-ink-muted">
+    Rclone S3 Management UI is an interactive rclone interface for backup, restore, and data transfer.
+    It puts every rclone backend behind a web interface: configure a remote once,
+    then copy, sync, schedule and restore with live progress instead of hand-written
+    scripts. The first four workflows cover almost everything you will do; the fifth
+    is a reference for the Transfer Console, where operations 2 and 4 actually run.
+  </p>
+  <p class="text-xs text-ink-faint mt-2">
+    The forms below are illustrations — nothing is saved and no transfer is started.
+  </p>
+</div>
+
+<!-- workflow switcher -->
+<div class="flex flex-wrap gap-1 border-b border-line mb-6" role="tablist" aria-label="Guide workflows">
+  <button type="button" role="tab" class="guide-tab px-4 py-2 text-sm border-b-2 border-brand-line text-brand-fg font-medium"
+          data-tab="wf1" aria-selected="true" aria-controls="wf1">1 · Add a Remote</button>
+  <button type="button" role="tab" class="guide-tab px-4 py-2 text-sm border-b-2 border-transparent text-ink-muted"
+          data-tab="wf2" aria-selected="false" aria-controls="wf2">2 · One-Time Backup</button>
+  <button type="button" role="tab" class="guide-tab px-4 py-2 text-sm border-b-2 border-transparent text-ink-muted"
+          data-tab="wf3" aria-selected="false" aria-controls="wf3">3 · Schedule Backups</button>
+  <button type="button" role="tab" class="guide-tab px-4 py-2 text-sm border-b-2 border-transparent text-ink-muted"
+          data-tab="wf4" aria-selected="false" aria-controls="wf4">4 · Restore</button>
+  <button type="button" role="tab" class="guide-tab px-4 py-2 text-sm border-b-2 border-transparent text-ink-muted"
+          data-tab="wf5" aria-selected="false" aria-controls="wf5">5 · Transfer Console</button>
+</div>
+
+<!-- ============================== WORKFLOW 1 ============================== -->
+<div class="guide-panel" id="wf1">
+  <div class="card p-4 mb-4">
+    <h2 class="text-base font-semibold text-ink">Workflow 1 · Add a Remote</h2>
+    <p class="text-sm text-ink-muted mt-1">
+      A <strong>remote</strong> is a named connection to one storage location — an S3 bucket,
+      a Cloudflare R2 account, Google Cloud Storage, B2, or even a local folder. You
+      configure it once here, then refer to it by name everywhere else. How to configure
+      an S3 bucket with credentials:
+    </p>
+  </div>
+
+  <div class="grid md:grid-cols-2 gap-4">
+    <div class="card p-4">
+      <h3 class="text-sm font-semibold text-ink mb-3">Example: an S3-compatible bucket</h3>
+
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs text-ink-muted mb-1" for="g1-name">Name</label>
+          <input id="g1-name" type="text" value="garage-prod" readonly
+                 class="input font-mono" autocomplete="off">
+          <p class="text-xs text-ink-faint mt-1">How you refer to this remote everywhere else.</p>
+        </div>
+
+        <div>
+          <label class="block text-xs text-ink-muted mb-1" for="g1-type">Type</label>
+          <select id="g1-type" class="input" disabled>
+            <option selected>S3</option>
+            <option>Cloudflare R2</option>
+            <option>Google Cloud Storage</option>
+            <option>Backblaze B2</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs text-ink-muted mb-1" for="g1-access">Access Key ID</label>
+          <input id="g1-access" type="text" value="AKIA••••••••••••••••" readonly
+                 class="input font-mono" autocomplete="off">
+        </div>
+
+        <div>
+          <label class="block text-xs text-ink-muted mb-1" for="g1-secret">Secret Access Key</label>
+          <input id="g1-secret" type="password" value="" placeholder="write-only, stored encrypted"
+                 class="input font-mono" autocomplete="off">
+          <p class="text-xs text-ink-faint mt-1">Encrypted at rest, never shown again.</p>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs text-ink-muted mb-1" for="g1-region">Region</label>
+            <input id="g1-region" type="text" value="us-east-1" readonly class="input font-mono">
+          </div>
+          <div>
+            <label class="block text-xs text-ink-muted mb-1" for="g1-endpoint">Endpoint</label>
+            <input id="g1-endpoint" type="text" value="s3.amazonaws.com" readonly class="input font-mono">
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2 pt-1">
+          <button type="button" class="btn btn-secondary btn-sm" data-demo-toast="Testing connection…">
+            Test Remote
+          </button>
+          <button type="button" class="btn btn-primary btn-sm" data-demo-toast="Demo only — not saved">
+            Save Remote
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="space-y-3">
+      <div class="card p-4 border-brand-line bg-brand-soft">
+        <p class="text-sm text-brand-fg">
+          <strong>Click “Test Remote” to verify before saving.</strong>
+          It runs a harmless listing against the bucket, so a typo in the region,
+          endpoint or key shows up here instead of during your first real backup.
+        </p>
+      </div>
+      <div class="card p-4">
+        <h3 class="text-sm font-semibold text-ink mb-2">Good to know</h3>
+        <ul class="text-sm text-ink-muted space-y-2">
+          <li>· Secrets are encrypted at rest; the UI shows “(unchanged)” on edit.</li>
+          <li>· Every backend rclone supports is available, including local and SFTP.</li>
+          <li>· Remotes can be edited or deleted later from the Remotes screen.</li>
+        </ul>
+        <a href="/remotes/new" class="link text-xs mt-3 inline-block">Open the real Add Remote form →</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================== WORKFLOW 2 ============================== -->
+<div class="guide-panel hidden" id="wf2">
+  <div class="card p-4 mb-4">
+    <h2 class="text-base font-semibold text-ink">Workflow 2 · Run a One-Time Backup</h2>
+    <p class="text-sm text-ink-muted mt-1">
+      Copy data from one bucket to another. Pick an operation, a source and a
+      destination, then start it — the quickest way to move or protect data once,
+      without setting up a schedule.
+    </p>
+  </div>
+
+  <div class="grid md:grid-cols-2 gap-4">
+    <div class="card p-4">
+      <h3 class="text-sm font-semibold text-ink mb-3">Example: copy a bucket</h3>
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs text-ink-muted mb-1" for="g2-op">Operation</label>
+          <select id="g2-op" class="input" disabled><option selected>Copy</option></select>
+          <p class="text-xs text-ink-faint mt-1">
+            Copy is safe to repeat — it skips files already at the destination.
+            Sync also deletes extras there, so choose it only when that is what you want.
+          </p>
+        </div>
+        <div>
+          <label class="block text-xs text-ink-muted mb-1" for="g2-src">Source remote</label>
+          <select id="g2-src" class="input" disabled>
+            <option selected>garage-prod · betastorage</option>
+            <option>cloudflare · test-bucket</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs text-ink-muted mb-1" for="g2-dst">Destination remote</label>
+          <select id="g2-dst" class="input" disabled>
+            <option selected>garage-local · new-bucket</option>
+            <option>cloudflare · test-bucket</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs text-ink-muted mb-1">Options</label>
+          <details class="border border-line rounded-lg p-2">
+            <summary class="text-xs text-ink-muted cursor-pointer">3 · Options (rclone flags)</summary>
+            <div class="mt-2 grid grid-cols-2 gap-2">
+              <label class="flex items-center gap-2 text-xs text-ink-muted">
+                <input type="checkbox" class="accent-[var(--brand)]" disabled> Dry run
+              </label>
+              <label class="flex items-center gap-2 text-xs text-ink-muted">
+                <input type="checkbox" class="accent-[var(--brand)]" disabled> Ignore existing
+              </label>
+            </div>
+          </details>
+        </div>
+        <button type="button" class="btn btn-primary btn-sm" data-demo-toast="Demo only — no transfer started">
+          Start Backup
+        </button>
+      </div>
+    </div>
+
+    <div class="card p-4">
+      <h3 class="text-sm font-semibold text-ink mb-3">What you will see</h3>
+      <p class="text-xs text-ink-muted mb-2">
+        A live card appears with a progress bar that refreshes about once a second,
+        showing objects done, bytes moved, speed and time remaining.
+      </p>
+      <div>
+        <div class="flex justify-between text-xs text-ink-muted mb-1">
+          <span>4 / 10 objects</span>
+          <span class="font-mono">42.0%</span>
+        </div>
+        <div class="h-2 w-full bg-app-raised rounded-full overflow-hidden">
+          <div class="h-full bg-brand rounded-full transition-all duration-500" style="width: 42.0%"></div>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-x-3 gap-y-1 text-xs mt-4">
+        <div class="flex justify-between"><span class="text-ink-faint">Transferred</span>
+          <span class="font-mono text-ink">1.2 GB</span></div>
+        <div class="flex justify-between"><span class="text-ink-faint">Total</span>
+          <span class="font-mono text-ink">2.8 GB</span></div>
+        <div class="flex justify-between"><span class="text-ink-faint">Speed</span>
+          <span class="font-mono text-ink">18.4 MB/s</span></div>
+        <div class="flex justify-between"><span class="text-ink-faint">ETA</span>
+          <span class="font-mono text-ink">90s</span></div>
+      </div>
+      <p class="text-xs text-ink-faint mt-3">
+        The bar turns green when the run succeeds and red if it fails, and every run is
+        kept in History with a full log.
+      </p>
+      <a href="/transfers" class="link text-xs mt-3 inline-block">Open the Transfer Console →</a>
+    </div>
+  </div>
+</div>
+
+<!-- ============================== WORKFLOW 3 ============================== -->
+<div class="guide-panel hidden" id="wf3">
+  <div class="card p-4 mb-4">
+    <h2 class="text-base font-semibold text-ink">Workflow 3 · Schedule a Recurring Backup</h2>
+    <p class="text-sm text-ink-muted mt-1">
+      Set up automatic backups using cron-like scheduling. A job remembers a source, a
+      destination and a schedule, then runs on its own — no cron scripts and no terminal
+      left open.
+    </p>
+  </div>
+
+  <div class="grid md:grid-cols-2 gap-4">
+    <div class="card p-4">
+      <h3 class="text-sm font-semibold text-ink mb-3">Example: nightly backup</h3>
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs text-ink-muted mb-1" for="g3-name">Job name</label>
+          <input id="g3-name" type="text" value="Nightly betastorage backup" readonly class="input">
+        </div>
+        <div>
+          <label class="block text-xs text-ink-muted mb-1" for="g3-src">Source</label>
+          <select id="g3-src" class="input" disabled><option selected>garage-prod · betastorage</option></select>
+        </div>
+        <div>
+          <label class="block text-xs text-ink-muted mb-1" for="g3-dst">Destination</label>
+          <select id="g3-dst" class="input" disabled><option selected>garage-local · new-bucket</option></select>
+        </div>
+        <div>
+          <label class="block text-xs text-ink-muted mb-1" for="g3-sched">How often</label>
+          <select id="g3-sched" class="input" disabled>
+            <option>Daily</option>
+            <option selected>Weekly</option>
+            <option>Monthly</option>
+          </select>
+          <p class="text-xs text-ink-faint mt-1">
+            Pick a preset and the equivalent cron expression is filled in below.
+          </p>
+        </div>
+        <div>
+          <label class="block text-xs text-ink-muted mb-1" for="g3-cron">Cron expression (UTC)</label>
+          <input id="g3-cron" type="text" value="0 2 * * *" readonly class="input font-mono">
+          <p class="text-xs text-ink-faint mt-1">At 02:00 every day.</p>
+        </div>
+        <button type="button" class="btn btn-primary btn-sm" data-demo-toast="Demo only — job not saved">
+          Save Job
+        </button>
+      </div>
+    </div>
+
+    <div class="space-y-3">
+      <div class="card p-4 border-brand-line bg-brand-soft">
+        <p class="text-sm text-brand-fg">
+          <strong>Backups run automatically. Monitor them on the Dashboard.</strong>
+          Each scheduled run appears with its status, and the Dashboard shows running
+          jobs, success/failure counts and total bytes moved.
+        </p>
+      </div>
+      <div class="card p-4">
+        <h3 class="text-sm font-semibold text-ink mb-2">Good to know</h3>
+        <ul class="text-sm text-ink-muted space-y-2">
+          <li>· A job can be toggled off without being deleted.</li>
+          <li>· “Run now” starts one immediately without waiting for the schedule.</li>
+          <li>· Every run is audited, so you can see who changed what and when.</li>
+        </ul>
+        <a href="/jobs" class="link text-xs mt-3 inline-block">Open the Jobs screen →</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================== WORKFLOW 4 ============================== -->
+<div class="guide-panel hidden" id="wf4">
+  <div class="card p-4 mb-4">
+    <h2 class="text-base font-semibold text-ink">Workflow 4 · Restore from Backup</h2>
+    <p class="text-sm text-ink-muted mt-1">
+      Recover data to a different bucket or location. Because backups keep dated
+      archives, you can restore the bucket exactly as it looked on a given day — not
+      just the latest copy.
+    </p>
+  </div>
+
+  <div class="grid md:grid-cols-2 gap-4">
+    <div class="card p-4">
+      <h3 class="text-sm font-semibold text-ink mb-3">Example: recover yesterday's files</h3>
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs text-ink-muted mb-1" for="g4-src">Backup source</label>
+          <select id="g4-src" class="input" disabled><option selected>garage-local · new-bucket</option></select>
+        </div>
+        <div>
+          <label class="block text-xs text-ink-muted mb-1" for="g4-date">Backup date</label>
+          <select id="g4-date" class="input" disabled>
+            <option>2026-10-03</option>
+            <option selected>2026-10-04</option>
+            <option>2026-10-05</option>
+          </select>
+          <p class="text-xs text-ink-faint mt-1">Only dates that actually hold an archive are listed.</p>
+        </div>
+        <div>
+          <label class="block text-xs text-ink-muted mb-1" for="g4-dst">Restore into</label>
+          <select id="g4-dst" class="input" disabled>
+            <option selected>garage-local · restore-test</option>
+            <option>garage-prod · betastorage</option>
+          </select>
+        </div>
+        <button type="button" class="btn btn-primary btn-sm" data-demo-toast="Demo only — nothing restored">
+          Restore
+        </button>
+        <p class="text-xs text-ink-muted">
+          The restore streams live progress just like a copy, so even a large recovery is
+          visible while it runs.
+        </p>
+      </div>
+    </div>
+
+    <div class="space-y-3">
+      <div class="card p-4 border-danger-line bg-danger-soft">
+        <p class="text-sm text-danger-fg">
+          <strong>Restoring overwrites files. Use a test bucket first if unsure.</strong>
+          Files at the destination are replaced with the archived versions. Restore into a
+          scratch location, check it, then copy what you need into place.
+        </p>
+      </div>
+      <div class="card p-4">
+        <h3 class="text-sm font-semibold text-ink mb-2">Good to know</h3>
+        <ul class="text-sm text-ink-muted space-y-2">
+          <li>· You can restore a single path, not just the whole bucket.</li>
+          <li>· Old snapshots are pruned automatically after the retention window.</li>
+          <li>· A dry run first shows exactly what would change.</li>
+        </ul>
+        <a href="/restore" class="link text-xs mt-3 inline-block">Open the Restore screen →</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ====================== TRANSFER CONSOLE (reference) ====================== -->
+<div class="guide-panel hidden" id="wf5">
+  <div class="card p-4 mb-4">
+    <h2 class="text-base font-semibold text-ink">Workflow 5 · The Transfer Console</h2>
+    <p class="text-sm text-ink-muted mt-1">
+      The Transfer Console (<code class="font-mono text-xs">/transfers</code>) is where workflows
+      2 and 4 actually run. It is not just “backup” — it is the front door to
+      <strong>every rclone operation</strong> this app supports, run one at a time with live
+      progress. Pick an operation, fill the form, press Run, and watch the Live run card.
+    </p>
+  </div>
+
+  <div class="grid md:grid-cols-2 gap-4">
+    <div class="card p-4">
+      <h3 class="text-sm font-semibold text-ink mb-1">The screen has three panels</h3>
+      <ul class="text-sm text-ink-muted space-y-2">
+        <li>
+          <strong>1 · Operation</strong> — the picker at the top left. Changing the button
+          re-renders the form below with the fields that operation needs.
+        </li>
+        <li>
+          <strong>The form</strong> — source and destination remotes, buckets and paths,
+          plus a collapsible <em>Options (rclone flags)</em> section with the real rclone
+          flags for that operation.
+        </li>
+        <li>
+          <strong>Live run</strong> — the card on the right. It appears as soon as you press
+          Run and refreshes about once a second until the run finishes.
+        </li>
+      </ul>
+      <p class="text-xs text-ink-faint mt-3">
+        A path browser sits underneath: choose a remote and folder to fill the path fields
+        without typing them by hand.
+      </p>
+      <a href="/transfers" class="link text-xs mt-3 inline-block">Open the Transfer Console →</a>
+    </div>
+
+    <div class="card p-4">
+      <h3 class="text-sm font-semibold text-ink mb-1">Every available operation</h3>
+      <p class="text-xs text-ink-muted mb-3">
+        These are the real operations, grouped exactly as the console groups them.
+      </p>
+
+      <p class="text-xs uppercase tracking-wide text-ink-faint mb-1">Copy &amp; sync</p>
+      <ul class="text-sm text-ink-muted space-y-1 mb-3">
+        <li>· <strong>Copy</strong> — new and changed files only, deletes nothing. Safe to repeat.</li>
+        <li>· <strong>Sync</strong> — makes the destination identical, <em>deleting extras</em>.</li>
+        <li>· <strong>Copy to (single object)</strong> — one file/folder to an exact name.</li>
+      </ul>
+
+      <p class="text-xs uppercase tracking-wide text-ink-faint mb-1">Move &amp; delete</p>
+      <ul class="text-sm text-ink-muted space-y-1 mb-3">
+        <li>· <strong>Move</strong> — copy then delete the source. Irreversible.</li>
+        <li>· <strong>Move to (single object)</strong> — one item to an exact name.</li>
+        <li>· <strong>Delete files</strong> / <strong>Purge folder</strong> — remove data at the source.</li>
+        <li>· <strong>Clean up empty folders</strong> — prune empty directories.</li>
+        <li>· <strong>Two-way sync</strong> — changes propagate both ways.</li>
+      </ul>
+
+      <p class="text-xs uppercase tracking-wide text-ink-faint mb-1">Verify, maintenance, inspect</p>
+      <ul class="text-sm text-ink-muted space-y-1">
+        <li>· <strong>Verify (check)</strong> — report missing/different files; transfers nothing.</li>
+        <li>· <strong>Verify encrypted remote</strong> — confirm a crypt remote decrypts correctly.</li>
+        <li>· <strong>Find duplicates</strong> — always a dry run, so it can delete nothing.</li>
+        <li>· <strong>Measure size</strong> — total size and object count of a path.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="grid md:grid-cols-2 gap-4 mt-4">
+    <div class="card p-4 border-danger-line bg-danger-soft">
+      <h3 class="text-sm font-semibold text-danger-fg mb-1">Destructive operations ask first</h3>
+      <p class="text-sm text-danger-fg">
+        Anything that removes or overwrites data — <strong>Sync</strong>, <strong>Move</strong>,
+        <strong>Delete</strong>, <strong>Purge</strong>, <strong>Two-way sync</strong> — shows a
+        red confirmation box before it can run, and needs that box ticked. Prefer a
+        <strong>dry run</strong> in Options when you are unsure: it reports what would change
+        without touching anything.
+      </p>
+      <p class="text-xs text-danger-fg mt-2">
+        Two-way sync needs a first run with <em>--resync</em> before it will do anything.
+      </p>
+    </div>
+
+    <div class="card p-4">
+      <h3 class="text-sm font-semibold text-ink mb-1">Reading the Live run card</h3>
+      <ul class="text-sm text-ink-muted space-y-1">
+        <li>· <strong>Objects</strong> — files or checks done, out of the total.</li>
+        <li>· <strong>Transferred / Total / Remaining</strong> — bytes moved so far and left.</li>
+        <li>· <strong>Speed</strong> and <strong>ETA</strong> — current rate and time remaining.</li>
+        <li>· <strong>Elapsed</strong>, plus <strong>Deleted</strong>, <strong>Errors</strong> and
+            <strong>Listed</strong> when the operation produces them.</li>
+      </ul>
+      <p class="text-xs text-ink-faint mt-3">
+        The bar turns green on success and red on failure. Every run — manual or scheduled —
+        is kept in <a href="/history" class="link">History</a> with a full log you can open.
+        A running transfer can be cancelled from the card.
+      </p>
+    </div>
+  </div>
+</div>
+
+<style>
+/* Local component classes for this page only. The compiled Tailwind sheet is
+   purged, so anything used here must either already exist there or be defined
+   right here. */
+.guide-tab { transition: color .15s, border-color .15s; }
+.guide-panel { animation: guide-fade .18s ease-out; }
+@keyframes guide-fade {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: none; }
+}
+</style>
+<script>
+(function () {
+  // Tab switching for the four workflows. Wrapped in an IIFE with no top-level
+  // declarations on purpose: htmx re-runs a swapped partial's <script> every time
+  // it is swapped in, and a top-level const/let would throw "Identifier has
+  // already been declared" on the second visit.
+  var ACTIVE = 'guide-tab px-4 py-2 text-sm border-b-2 border-brand-line text-brand-fg font-medium';
+  var IDLE = 'guide-tab px-4 py-2 text-sm border-b-2 border-transparent text-ink-muted';
+
+  var tabs = document.querySelectorAll('.guide-tab');
+  var panels = document.querySelectorAll('.guide-panel');
+
+  function select(name) {
+    tabs.forEach(function (t) {
+      var on = t.getAttribute('data-tab') === name;
+      t.setAttribute('aria-selected', on ? 'true' : 'false');
+      t.className = on ? ACTIVE : IDLE;
+    });
+    panels.forEach(function (p) {
+      p.classList.toggle('hidden', p.id !== name);
+    });
+  }
+
+  tabs.forEach(function (t) {
+    t.addEventListener('click', function () {
+      select(t.getAttribute('data-tab'));
+    });
+  });
+
+  // The demo controls are inert by design. Give them feedback so it is obvious
+  // they are illustrations rather than broken real forms. showToast is defined in
+  // base.html; the typeof guard keeps the page usable if it ever moves.
+  document.querySelectorAll('[data-demo-toast]').forEach(function (el) {
+    el.addEventListener('click', function () {
+      if (typeof showToast === 'function') {
+        showToast(el.getAttribute('data-demo-toast'), 'success');
+      }
+    });
+  });
+
+  select('wf1');
+})();
+</script>
+{% endblock %}

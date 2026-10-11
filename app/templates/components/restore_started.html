@@ -1,0 +1,7 @@
+<div class="p-4 rounded-xl border border-ok-line bg-ok-soft text-sm">
+  <p class="font-medium text-ok-fg">Restore started</p>
+  <p class="text-ink-muted mt-1"><code>{{ archive }}</code> → <code>{{ destination }}</code></p>
+  <div id="restore-progress" hx-get="/runs/{{ run_id }}/status" hx-trigger="load, every 2s" hx-swap="innerHTML">
+    <span class="text-ink-faint">starting…</span>
+  </div>
+</div>

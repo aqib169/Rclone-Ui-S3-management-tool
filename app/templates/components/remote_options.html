@@ -1,0 +1,7 @@
+{% if error %}
+<option value="">Failed to load remotes</option>
+{% else %}
+{% for r in remotes %}
+<option value="{{ r }}">{{ r }}</option>
+{% endfor %}
+{% endif %}

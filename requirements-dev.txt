@@ -1,0 +1,14 @@
+# Test-only dependencies.
+#
+# Kept separate from requirements.txt so the runtime image stays minimal: the
+# Dockerfile installs only requirements.txt, and the test suite is never copied
+# into the image. Install with:
+#
+#     pip install -r requirements.txt -r requirements-dev.txt
+#
+# Node-side dev dependencies (jsdom, eslint, tailwindcss) live in package.json
+# and are not needed here.
+
+# Imported by tests/test_e2e_lifecycle.py, test_htmx_scripts.py,
+# test_rclone_surface.py and test_remote_form_ui.py.
+pytest

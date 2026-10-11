@@ -1,0 +1,203 @@
+@tailwind base;
+@tailwind utilities;
+
+/* ==========================================================================
+   Garage Backup Orchestrator — design system
+   Tokens are plain CSS variables so the entire UI can switch between light
+   and dark by toggling the `.dark` class on <html>. The class is applied by
+   an inline script in base.html/login.html before first paint (system
+   preference by default, manual choice persisted in localStorage).
+   ========================================================================== */
+
+:root {
+  color-scheme: light;
+
+  --app-bg: #f4f6f9;
+  --app-surface: #ffffff;
+  --app-raised: #eef1f6;
+
+  --line: #e3e7ee;
+  --line-strong: #cdd4df;
+
+  --fg: #171e2a;
+  --fg-muted: #51607a;
+  --fg-faint: #8b97ab;
+
+  --brand: #2f6bff;
+  --brand-hover: #2359e6;
+  --brand-soft: #ebf1ff;
+  --brand-fg: #2456d6;
+  --brand-line: #b9cdfd;
+
+  --ok: #16a34a;
+  --ok-soft: #eafaf0;
+  --ok-fg: #15803d;
+  --ok-line: #b5e6c6;
+
+  --danger: #dc2626;
+  --danger-soft: #fdeeee;
+  --danger-fg: #b91c1c;
+  --danger-line: #f6c7c7;
+
+  --warn: #d97706;
+  --warn-soft: #fdf5e6;
+  --warn-fg: #b45309;
+  --warn-line: #f2ddb0;
+
+  --code-bg: #f2f5f9;
+}
+
+.dark {
+  color-scheme: dark;
+
+  --app-bg: #0b101b;
+  --app-surface: #121a28;
+  --app-raised: #1a2434;
+
+  --line: #263144;
+  --line-strong: #35435c;
+
+  --fg: #e7ebf2;
+  --fg-muted: #a2adc0;
+  --fg-faint: #66738c;
+
+  --brand: #3f7bfd;
+  --brand-hover: #5b90fd;
+  --brand-soft: rgba(63, 123, 253, 0.14);
+  --brand-fg: #93b6ff;
+  --brand-line: rgba(63, 123, 253, 0.45);
+
+  --ok: #22c55e;
+  --ok-soft: rgba(34, 197, 94, 0.12);
+  --ok-fg: #5ed99a;
+  --ok-line: rgba(34, 197, 94, 0.4);
+
+  --danger: #ef4444;
+  --danger-soft: rgba(239, 68, 68, 0.12);
+  --danger-fg: #f87171;
+  --danger-line: rgba(239, 68, 68, 0.4);
+
+  --warn: #f59e0b;
+  --warn-soft: rgba(245, 158, 11, 0.12);
+  --warn-fg: #fbbf24;
+  --warn-line: rgba(245, 158, 11, 0.4);
+
+  --code-bg: #0d1420;
+}
+
+/* --------------------------------------------------------------- base */
+html { scroll-behavior: smooth; }
+body { background-color: var(--app-bg); color: var(--fg); }
+code { background-color: var(--code-bg); border-radius: 0.25rem; padding: 0.05rem 0.3rem; }
+pre code { background: transparent; padding: 0; }
+
+/* ------------------------------------------------------------ buttons */
+.btn, .btn-primary, .btn-secondary, .btn-danger, .btn-danger-outline, .btn-ghost {
+  @apply inline-flex items-center justify-center gap-1.5 rounded-lg px-3.5 py-2 text-sm font-medium select-none;
+  @apply transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand;
+  @apply disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none;
+}
+.btn-primary        { @apply bg-brand text-white shadow-sm hover:bg-brand-hover; }
+.btn-secondary      { @apply bg-app-surface text-ink border border-line-strong hover:bg-app-raised; }
+.btn-danger         { @apply bg-danger text-white shadow-sm hover:brightness-110; }
+.btn-danger-outline { @apply text-danger-fg border border-danger-line hover:bg-danger-soft; }
+.btn-ghost          { @apply text-brand-fg hover:bg-brand-soft; }
+.btn-sm             { @apply px-2.5 py-1.5 text-xs rounded-md; }
+.icon-btn {
+  @apply inline-flex items-center justify-center w-9 h-9 rounded-lg transition-colors duration-150;
+  @apply text-ink-muted hover:text-ink hover:bg-app-raised focus:outline-none focus-visible:ring-2 focus-visible:ring-brand;
+}
+
+/* -------------------------------------------------------------- cards */
+.card { @apply bg-app-surface border border-line rounded-xl shadow-sm; }
+
+/* ------------------------------------------------------------- inputs */
+.input {
+  @apply w-full rounded-lg border border-line-strong bg-app-surface px-3 py-2 text-sm text-ink;
+  @apply placeholder:text-ink-faint transition-colors duration-150;
+  @apply focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand;
+}
+.label { @apply block text-sm font-medium text-ink mb-1; }
+.hint  { @apply text-xs text-ink-faint mt-1; }
+
+/* ------------------------------------------------------------- badges */
+.badge { @apply inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap; }
+.badge-neutral { @apply bg-app-raised text-ink-muted border border-line; }
+.badge-brand   { @apply bg-brand-soft text-brand-fg; }
+.badge-ok      { @apply bg-ok-soft text-ok-fg; }
+.badge-warn    { @apply bg-warn-soft text-warn-fg; }
+.badge-danger  { @apply bg-danger-soft text-danger-fg; }
+.dot   { @apply w-1.5 h-1.5 rounded-full inline-block; }
+
+/* -------------------------------------------------------------- table */
+.data-table {
+  @apply w-full bg-app-surface border border-line rounded-xl overflow-hidden text-sm;
+}
+.data-table thead th {
+  @apply px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-ink-faint bg-app-raised whitespace-nowrap;
+}
+.data-table tbody td { @apply px-4 py-3 align-middle; }
+.data-table tbody tr { @apply border-t border-line transition-colors hover:bg-app-raised; }
+
+/* ---------------------------------------------------------------- nav */
+.nav-link {
+  @apply flex items-center rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-150;
+  @apply text-ink-muted hover:text-ink hover:bg-app-raised;
+}
+.nav-link.active { @apply bg-brand text-white hover:bg-brand-hover; }
+
+/* --------------------------------------------------------------- misc */
+.link { @apply text-brand-fg hover:underline underline-offset-2; }
+
+/* Terminal / log viewer — theme-aware: light surface + dark text in light
+   mode, dark surface + near-white text in dark mode. Semantic line colors
+   (danger/warn/ok) are applied per-line by the log viewers via tokens. */
+.terminal {
+  @apply rounded-xl p-3 sm:p-4 text-[11px] sm:text-xs leading-relaxed overflow-auto;
+  background-color: var(--code-bg);
+  color: var(--fg);
+  border: 1px solid var(--line);
+}
+
+/* ==========================================================================
+   Dark-mode compatibility net
+   Older/partially-migrated templates still use raw gray/blue-50-style
+   utilities. Remap them under `.dark` so every view themes consistently.
+   Newly written templates should prefer the semantic tokens above.
+   ========================================================================== */
+.dark .bg-white { background-color: var(--app-surface); }
+.dark .bg-gray-50 { background-color: var(--app-raised); }
+.dark .bg-gray-100 { background-color: var(--app-raised); }
+.dark .bg-gray-200 { background-color: var(--line); }
+
+.dark .border-gray-100, .dark .border-gray-200, .dark .border-gray-300 { border-color: var(--line); }
+.dark .divide-gray-100 > :not([hidden]) ~ :not([hidden]),
+.dark .divide-gray-200 > :not([hidden]) ~ :not([hidden]) { border-color: var(--line); }
+
+.dark .hover\:bg-gray-50:hover, .dark .hover\:bg-gray-100:hover { background-color: var(--app-raised); }
+.dark .hover\:bg-white\/10:hover { background-color: rgba(255, 255, 255, 0.08); }
+.dark .hover\:bg-blue-50:hover { background-color: var(--brand-soft); }
+.dark .hover\:bg-red-50:hover { background-color: var(--danger-soft); }
+.dark .hover\:bg-gray-700:hover { background-color: #232e42; }
+
+.dark .text-gray-900, .dark .text-gray-800, .dark .text-gray-700 { color: var(--fg); }
+.dark .text-gray-600, .dark .text-gray-500 { color: var(--fg-muted); }
+.dark .text-gray-400, .dark .text-gray-300 { color: var(--fg-faint); }
+
+.dark .text-blue-600, .dark .text-blue-700, .dark .text-blue-800 { color: var(--brand-fg); }
+.dark .text-green-600, .dark .text-green-700, .dark .text-green-800 { color: var(--ok-fg); }
+.dark .text-red-600, .dark .text-red-700, .dark .text-red-800 { color: var(--danger-fg); }
+.dark .text-amber-600, .dark .text-amber-700, .dark .text-amber-800 { color: var(--warn-fg); }
+
+.dark .bg-blue-50, .dark .bg-blue-100 { background-color: var(--brand-soft); }
+.dark .bg-green-50 { background-color: var(--ok-soft); }
+.dark .bg-red-50 { background-color: var(--danger-soft); }
+.dark .bg-amber-50 { background-color: var(--warn-soft); }
+.dark .bg-indigo-50 { background-color: var(--brand-soft); }
+.dark .bg-purple-50 { background-color: rgba(147, 51, 234, 0.14); }
+
+.dark .border-blue-200, .dark .border-blue-300, .dark .border-blue-600 { border-color: var(--brand-line); }
+.dark .border-green-200, .dark .border-green-300 { border-color: var(--ok-line); }
+.dark .border-red-200, .dark .border-red-300 { border-color: var(--danger-line); }
+.dark .border-amber-200, .dark .border-amber-300 { border-color: var(--warn-line); }
+

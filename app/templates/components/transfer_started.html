@@ -1,0 +1,6 @@
+<div hx-get="/runs/{{ run_id }}/progress" hx-trigger="load" hx-swap="outerHTML">
+  <p class="text-sm text-ink-muted">
+    Starting <span class="font-mono">{{ operation }}</span>
+    <span class="font-mono text-ink-faint">{{ source }}</span>…
+  </p>
+</div>

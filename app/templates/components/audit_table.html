@@ -1,0 +1,44 @@
+<div class="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+  <table class="data-table min-w-[800px]">
+    <thead>
+      <tr>
+        <th>Time</th>
+        <th>User</th>
+        <th>Action</th>
+        <th>Details</th>
+        <th>Method</th>
+        <th>Path</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for entry in logs %}
+      <tr>
+        <td class="whitespace-nowrap text-ink-faint">{{ entry.timestamp | dt }}</td>
+        <td class="text-ink-muted">{{ entry.username or '—' }}</td>
+        <td><span class="badge badge-neutral">{{ entry.action or '—' }}</span></td>
+        <td class="text-ink-muted max-w-[22rem] truncate" title="{{ entry.details }}">{{ entry.details or '' }}</td>
+        <td class="text-ink-faint">{{ entry.method or '—' }}</td>
+        <td class="text-ink-faint max-w-[12rem] truncate" title="{{ entry.path }}">{{ entry.path or '—' }}</td>
+        <td>
+          {% if entry.success %}
+          <span class="badge badge-ok">{{ entry.status_code }}</span>
+          {% else %}
+          <span class="badge badge-danger">{{ entry.status_code or 'ERR' }}</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% if not logs %}
+  <div class="card border-dashed p-10 text-center">
+    <div class="mx-auto w-10 h-10 rounded-full bg-app-raised flex items-center justify-center mb-3">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-5 h-5 text-ink-faint"><path d="M12 8v4M12 16h.01"/><circle cx="12" cy="12" r="9"/></svg>
+    </div>
+    <p class="text-ink font-medium">No audit entries yet</p>
+    <p class="text-sm text-ink-muted mt-1">Actions will appear here as they happen.</p>
+  </div>
+  {% endif %}
+  {% include "components/pagination.html" %}
+</div>

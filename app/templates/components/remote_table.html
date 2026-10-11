@@ -1,0 +1,49 @@
+<div class="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+  <table class="data-table min-w-[720px]">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Endpoint</th>
+        <th>Type</th>
+        <th>Region</th>
+        <th>Used by</th>
+        <th class="!text-right">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in items %}
+      <tr>
+        <td class="font-medium text-ink">{{ item.remote.name }}</td>
+        <td class="text-ink-muted break-all max-w-[16rem]">{{ item.remote.endpoint }}</td>
+        <td><span class="badge badge-brand">{{ item.remote.type }}</span></td>
+        <td class="text-ink-muted">{{ item.remote.region }}</td>
+        <td class="text-xs">
+          {% if item.jobs %}
+            <span class="badge badge-warn">{{ item.jobs | join(', ') }}</span>
+          {% else %}
+            <span class="text-ink-faint">—</span>
+          {% endif %}
+        </td>
+        <td class="text-right whitespace-nowrap">
+          <button type="button" onclick="openEditRemote({{ item.remote.id }})"
+                  class="btn btn-secondary btn-sm">Edit</button>
+          <button type="button" onclick="testRemote({{ item.remote.id }})"
+                  class="btn btn-ghost btn-sm ml-1.5">Test</button>
+          <button type="button" onclick="deleteRemote({{ item.remote.id }}, '{{ item.remote.name }}')"
+                  class="btn btn-danger-outline btn-sm ml-1.5">Delete</button>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% if not items %}
+  <div class="card border-dashed p-10 text-center">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="mx-auto w-10 h-10 text-ink-faint mb-3"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9 17 7M7 17l-2.1 2.1"/></svg>
+    <p class="text-ink font-medium">No remotes yet</p>
+    <p class="text-sm text-ink-muted mt-1 mb-4">Add an S3-compatible endpoint to back up to.</p>
+    <a href="/remotes?new=1"
+       onclick="event.preventDefault(); openModal('/remotes/new')"
+       class="btn btn-primary">Add Remote</a>
+  </div>
+  {% endif %}
+</div>

@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}{{ job.name }} · Rclone S3 UI{% endblock %}
+{% block content %}
+<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+  <h1 class="text-xl sm:text-2xl font-semibold truncate text-ink">{{ job.name }}</h1>
+  <div class="flex gap-2 shrink-0">
+    <button type="button"
+            hx-post="/jobs/{{ job.id }}/run"
+            hx-target="#runs"
+            hx-swap="innerHTML"
+            data-toast-success="Backup started"
+            class="btn btn-primary btn-sm sm:!px-3.5 sm:!py-2">Run Now</button>
+    <button type="button" onclick="openModal('/jobs/{{ job.id }}/edit')"
+            class="btn btn-secondary btn-sm sm:!px-3.5 sm:!py-2">Edit</button>
+  </div>
+</div>
+
+<div class="card p-4 mb-6 text-sm">
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
+    <div class="min-w-0">
+      <span class="text-ink-muted">Source:</span>
+      <span class="font-mono break-all text-ink">{{ job.source_remote | target(job.source_bucket, job.source_path) }}</span>
+    </div>
+    <div class="min-w-0">
+      <span class="text-ink-muted">Destination:</span>
+      <span class="font-mono break-all text-ink">{{ job.dest_remote | target(job.dest_bucket, job.dest_path) }}</span>
+    </div>
+    <div>
+      <span class="text-ink-muted">Schedule:</span>
+      {% if job.schedule %}<code>{{ job.schedule }}</code>{% else %}<span class="badge badge-neutral">manual only</span>{% endif %}
+    </div>
+    <div class="flex items-center gap-2">
+      <span class="text-ink-muted">Enabled:</span>
+      <span class="relative inline-flex h-5 w-9 items-center rounded-full pointer-events-none {{ 'bg-ok' if job.enabled else 'bg-line-strong' }}">
+        <span class="inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow {{ 'translate-x-[1.25rem]' if job.enabled else 'translate-x-1' }}"></span>
+      </span>
+    </div>
+  </div>
+</div>
+
+<h2 class="text-base font-medium mb-3 text-ink">Runs</h2>
+<div id="runs" hx-get="/jobs/{{ job.id }}/runs" hx-trigger="load, every 3s" hx-swap="innerHTML">
+  {% include "components/run_table.html" %}
+</div>
+{% endblock %}

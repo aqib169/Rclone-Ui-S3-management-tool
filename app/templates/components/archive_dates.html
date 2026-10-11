@@ -1,0 +1,14 @@
+{% if error %}
+<p class="text-danger-fg text-sm">{{ error }}</p>
+{% elif dates %}
+<div class="flex flex-wrap gap-2">
+  {% for d in dates %}
+  <button type="button" onclick="pickDate('{{ d }}')"
+          class="px-3 py-1.5 text-sm font-medium border border-line-strong rounded-lg text-ink-muted hover:text-brand-fg hover:border-brand-line hover:bg-brand-soft transition-colors">
+    {{ d }}
+  </button>
+  {% endfor %}
+</div>
+{% else %}
+<p class="text-ink-faint text-sm">No archives found for this bucket.</p>
+{% endif %}

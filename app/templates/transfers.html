@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}Transfers · Rclone S3 UI{% endblock %}
+{% block content %}
+<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+  <div>
+    <h1 class="text-xl sm:text-2xl font-semibold text-ink">Transfer Console</h1>
+    <p class="text-sm text-ink-muted mt-1">
+      Run any rclone operation between your remotes — copy, sync, move, delete,
+      verify — with a dry run first and live progress.
+    </p>
+  </div>
+</div>
+
+<div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
+  <!-- ------------------------------------------------ builder -->
+  <div class="xl:col-span-2 space-y-4">
+    <section class="card p-4">
+      <h2 class="text-sm font-semibold text-ink mb-3">1 · Operation</h2>
+      {% for category in categories %}
+        {% set cat_ops = operations | selectattr('category', 'equalto', category) | list %}
+        {% if cat_ops %}
+        <div class="mb-3">
+          <p class="text-xs uppercase tracking-wide text-ink-faint mb-1">{{ category }}</p>
+          <div class="flex flex-wrap gap-2">
+            {% for op in cat_ops %}
+            {% set is_default = loop.first and category == 'Copy & sync' %}
+            <button type="button"
+                    class="btn btn-sm {{ 'btn-primary' if is_default else 'btn-secondary' }} {% if op.destructive %}btn-danger-outline{% endif %}"
+                    hx-get="/transfers/form?operation={{ op.name }}"
+                    hx-target="#transfer-builder"
+                    hx-swap="innerHTML"
+                    hx-push-url="false">{{ op.label }}</button>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+      {% endfor %}
+    </section>
+
+    <section id="transfer-builder" class="card p-4"
+             hx-get="/transfers/form?operation=copy"
+             hx-trigger="load">
+      <p class="text-sm text-ink-faint">Loading the operation form…</p>
+    </section>
+  </div>
+
+  <!-- ------------------------------------------------ live run -->
+  <div class="space-y-4">
+    <section class="card p-4">
+      <h2 class="text-sm font-semibold text-ink mb-3">Live run</h2>
+      <div id="transfer-progress">
+        <p class="text-sm text-ink-faint">
+          Start an operation to see progress, speed and transferred objects here.
+        </p>
+      </div>
+    </section>
+
+    <section class="card p-4">
+      <h2 class="text-sm font-semibold text-ink mb-3">Path browser</h2>
+      <div class="space-y-2">
+        <label class="block text-xs text-ink-muted">
+          Where to look
+          <select class="input" id="browser-remote"
+                  hx-get="/transfers/listing"
+                  hx-target="#path-listing"
+                  hx-swap="innerHTML"
+                  name="browser_remote"
+                  onchange="document.getElementById('browser-path').value=''; browsePath();">
+            <option value="">— choose a place —</option>
+            {% for r in remotes %}
+              <option value="{{ r.name }}">{{ r.name }} ({{ r.type }})</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label class="block text-xs text-ink-muted">
+          Folder inside the remote
+          <input class="input font-mono" id="browser-path" value=""
+                 placeholder="leave blank for the top level"
+                 onkeydown="if(event.key==='Enter'){event.preventDefault();browsePath();}">
+        </label>
+        <div id="path-listing" class="text-sm text-ink-faint">
+          Pick a remote to browse it.
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,234 @@
+{% extends "base.html" %}
+{% block title %}Restore · Rclone S3 UI{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-semibold mb-4">Restore</h1>
+
+{% if error %}
+<p class="text-red-600 text-sm mb-4">Failed to load remotes: {{ error }}</p>
+{% endif %}
+
+<form hx-post="/restore" hx-target="#restore-result" hx-swap="innerHTML">
+  <div class="grid md:grid-cols-2 gap-6">
+    <!-- Left: source + archive -->
+    <div class="space-y-4">
+      <div class="bg-white rounded-lg shadow p-4">
+        <h2 class="font-medium mb-3">1. Source archive</h2>
+        <label class="block text-xs text-gray-500">Remote</label>
+        <select id="restore-remote" name="remote" required
+                hx-get="/remotes/buckets" hx-trigger="change" hx-include="this"
+                hx-target="#restore-bucket" hx-swap="innerHTML"
+                onchange="loadDates()"
+                class="mt-1 w-full border border-gray-300 rounded px-3 py-2 text-sm">
+          <option value="">Select remote</option>
+          {% for r in remotes %}
+          <option value="{{ r }}">{{ r }}</option>
+          {% endfor %}
+        </select>
+
+        <label class="block text-xs text-gray-500 mt-3">Bucket</label>
+        <select id="restore-bucket" name="bucket" required onchange="loadDates()"
+                class="mt-1 w-full border border-gray-300 rounded px-3 py-2 text-sm">
+          <option value="">Select remote first</option>
+        </select>
+      </div>
+
+      <div class="bg-white rounded-lg shadow p-4">
+        <h2 class="font-medium mb-3">2. Pick archive date</h2>
+        <div id="archive-dates" class="text-sm"></div>
+      </div>
+
+      <div class="bg-white rounded-lg shadow p-4">
+        <h2 class="font-medium mb-3">3. Browse archive</h2>
+        <label class="flex items-center gap-2 text-sm text-gray-700 mb-2">
+          <input type="checkbox" id="restore-all" onchange="toggleRestoreAll(this)">
+          Restore <strong>entire archive</strong> for the selected date (sync, protects current files via backup-dir)
+        </label>
+        <div id="archive-tree" class="max-h-80 overflow-auto border border-gray-200 rounded p-2 text-sm"></div>
+      </div>
+    </div>
+
+    <!-- Right: destination + trigger -->
+    <div class="space-y-4">
+      <div class="bg-white rounded-lg shadow p-4">
+        <h2 class="font-medium mb-3">4. Destination</h2>
+        <label class="block text-xs text-gray-500">Remote</label>
+        <select id="restore-dest-remote" name="dest_remote" required
+                hx-get="/remotes/buckets" hx-trigger="change" hx-include="this"
+                hx-target="#dest-bucket" hx-swap="innerHTML"
+                onchange="updateWarning()"
+                class="mt-1 w-full border border-gray-300 rounded px-3 py-2 text-sm">
+          <option value="">Select remote</option>
+          {% for r in remotes %}
+          <option value="{{ r }}">{{ r }}</option>
+          {% endfor %}
+        </select>
+
+        <label class="block text-xs text-gray-500 mt-3">Bucket</label>
+        <select id="dest-bucket" name="dest_bucket" onchange="updateWarning()"
+                class="mt-1 w-full border border-gray-300 rounded px-3 py-2 text-sm">
+          <option value="">Choose a remote first</option>
+        </select>
+
+        <label class="block text-xs text-gray-500 mt-3">Subpath (optional)</label>
+        <input type="text" name="dest_path" id="dest-subpath"
+               class="mt-1 w-full border border-gray-300 rounded px-3 py-2 text-sm">
+
+        <div id="restore-warning" class="hidden mt-3 p-3 bg-amber-50 border border-amber-300 rounded text-sm text-amber-800">
+          Restoring into the same bucket the archive lives in — files newer than the selected date will be
+          <strong>overwritten</strong>. The "entire archive" option protects current files with a backup-dir.
+        </div>
+      </div>
+
+      <div class="bg-white rounded-lg shadow p-4">
+        <h2 class="font-medium mb-3">Restore</h2>
+        <input type="hidden" name="mode" id="restore-mode" value="files">
+        <input type="hidden" name="paths" id="restore-paths" value="">
+        <input type="hidden" name="date" id="restore-date" value="">
+        <p class="text-sm text-gray-600">
+          Source: <span id="restore-source-label" class="font-medium text-gray-800"></span>
+        </p>
+        <p class="text-sm text-gray-600 mt-1">
+          Selected: <span id="restore-count" class="font-medium text-gray-800">0 items</span>
+        </p>
+        <button type="submit" id="restore-submit" disabled
+                data-toast-success="Restore started"
+                class="mt-3 w-full px-4 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 disabled:opacity-50">
+          Restore selected
+        </button>
+      </div>
+    </div>
+  </div>
+</form>
+
+<div id="restore-result" class="mt-4"></div>
+
+<script>
+let currentRemote = '';
+let currentBucket = '';
+let currentDate = '';
+let restoreMode = 'files';
+
+function loadDates() {
+  const r = document.getElementById('restore-remote').value;
+  const b = document.getElementById('restore-bucket').value;
+  currentRemote = r;
+  currentBucket = b;
+  currentDate = '';
+  restoreMode = 'files';
+  document.getElementById('restore-mode').value = 'files';
+  document.getElementById('restore-all').checked = false;
+  document.getElementById('restore-date').value = '';
+  document.getElementById('restore-paths').value = '';
+  document.getElementById('archive-dates').innerHTML = '';
+  document.getElementById('archive-tree').innerHTML = '';
+  updateRestoreSource();
+  refreshSelection();
+  if (r && b) {
+    htmx.ajax('GET', '/restore/archives?remote=' + encodeURIComponent(r) + '&bucket=' + encodeURIComponent(b),
+      { target: '#archive-dates', swap: 'innerHTML' });
+  }
+  updateWarning();
+}
+
+function pickDate(d) {
+  currentDate = d;
+  document.getElementById('restore-date').value = d;
+  document.querySelectorAll('#archive-dates button').forEach(function (btn) {
+    const active = btn.textContent.trim() === d;
+    btn.classList.toggle('bg-blue-600', active);
+    btn.classList.toggle('text-white', active);
+    btn.classList.toggle('border-blue-600', active);
+  });
+  document.getElementById('archive-tree').innerHTML = '';
+  document.getElementById('restore-all').checked = false;
+  restoreMode = 'files';
+  document.getElementById('restore-mode').value = 'files';
+  refreshSelection();
+  updateRestoreSource();
+  if (currentRemote && currentBucket && d) {
+    htmx.ajax('GET', '/restore/tree?remote=' + encodeURIComponent(currentRemote) +
+      '&bucket=' + encodeURIComponent(currentBucket) + '&date=' + encodeURIComponent(d),
+      { target: '#archive-tree', swap: 'innerHTML' });
+  }
+}
+
+function loadChildren(btn) {
+  const id = btn.dataset.id;
+  const el = document.getElementById(id);
+  if (!el) return;
+  if (el.classList.contains('hidden')) {
+    el.classList.remove('hidden');
+    if (el.dataset.loaded !== '1') {
+      const path = btn.dataset.dir;
+      const url = '/restore/tree?remote=' + encodeURIComponent(currentRemote) +
+        '&bucket=' + encodeURIComponent(currentBucket) + '&date=' + encodeURIComponent(currentDate) +
+        '&path=' + encodeURIComponent(path);
+      htmx.ajax('GET', url, { target: '#' + id, swap: 'innerHTML' });
+      el.dataset.loaded = '1';
+    }
+  } else {
+    el.classList.add('hidden');
+  }
+}
+
+function toggleRestoreAll(cb) {
+  restoreMode = cb.checked ? 'all' : 'files';
+  document.getElementById('restore-mode').value = restoreMode;
+  if (cb.checked) {
+    document.querySelectorAll('#archive-tree input.restore-check').forEach(function (c) { c.checked = false; });
+  }
+  refreshSelection();
+  updateWarning();
+}
+
+function onCheckChanged(cb) {
+  if (cb.checked && document.getElementById('restore-all').checked) {
+    document.getElementById('restore-all').checked = false;
+    restoreMode = 'files';
+    document.getElementById('restore-mode').value = 'files';
+  }
+  refreshSelection();
+}
+
+function refreshSelection() {
+  const checked = Array.prototype.slice.call(
+    document.querySelectorAll('#archive-tree input.restore-check:checked')).map(function (c) {
+      return { path: c.dataset.path, dir: c.dataset.dir === '1' };
+    });
+  const effective = checked.filter(function (p) {
+    return !checked.some(function (o) { return o.path !== p.path && p.path.startsWith(o.path + '/'); });
+  });
+  document.getElementById('restore-paths').value = effective.map(function (p) {
+    return (p.dir ? 'd:' : 'f:') + p.path;
+  }).join('\n');
+  const n = effective.length;
+  const countEl = document.getElementById('restore-count');
+  countEl.textContent = restoreMode === 'all' ? 'entire archive' : (n + ' item' + (n === 1 ? '' : 's'));
+  document.getElementById('restore-submit').disabled = restoreMode !== 'all' && n === 0;
+  document.getElementById('restore-submit').textContent =
+    restoreMode === 'all' ? 'Restore entire archive' : 'Restore selected';
+}
+
+function updateRestoreSource() {
+  const lbl = document.getElementById('restore-source-label');
+  lbl.textContent = (currentRemote && currentBucket && currentDate)
+    ? currentRemote + ':' + currentBucket + '/archive/' + currentDate : '';
+}
+
+function updateWarning() {
+  const warn = document.getElementById('restore-warning');
+  const dstR = document.getElementById('restore-dest-remote').value;
+  const dstB = document.getElementById('dest-bucket').value;
+  const sameBucket = currentRemote && dstR && currentRemote === dstR && currentBucket && dstB === currentBucket;
+  warn.classList.toggle('hidden', !sameBucket);
+}
+
+document.getElementById('archive-tree').addEventListener('change', function (e) {
+  if (e.target.matches('input.restore-check')) onCheckChanged(e.target);
+});
+document.getElementById('archive-tree').addEventListener('click', function (e) {
+  const btn = e.target.closest('.tree-toggle');
+  if (btn) loadChildren(btn);
+});
+</script>
+{% endblock %}

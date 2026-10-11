@@ -1,0 +1,24 @@
+services:
+  orchestrator:
+    build: .
+    container_name: rclone-s3-management-ui
+    ports:
+      - "8000:8000"
+    environment:
+      USERNAME: ${USERNAME:?Set USERNAME in .env or the environment before starting the container}
+      PASSWORD: ${PASSWORD:?Set PASSWORD in .env or the environment before starting the container}
+      SELF_BACKUP_DEST: ${SELF_BACKUP_DEST:-}
+    volumes:
+      - ./data:/app/data
+    tmpfs:
+      - /tmp
+    read_only: true
+    mem_limit: 150m
+    cpus: 1
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s

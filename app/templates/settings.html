@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Settings · Rclone S3 UI{% endblock %}
+{% block content %}
+<div class="max-w-2xl">
+  <h1 class="text-xl sm:text-2xl font-semibold mb-1 text-ink">Settings</h1>
+  <p class="text-sm text-ink-muted mb-6 leading-relaxed">
+    Each setting has an environment-variable default (shown next to the label)
+    and an optional database override. Values saved here override the
+    environment at runtime — no restart or rebuild required. Clear a field and
+    save to revert to its environment default (except <strong>Password</strong>,
+    where blank keeps the current password).
+  </p>
+
+  {% if saved %}
+  <div class="mb-6 px-4 py-3 rounded-xl bg-ok-soft border border-ok-line text-ok-fg text-sm">
+    Settings saved and applied.
+    {% if 'username' in overridden or 'password' in overridden %}
+    If you changed the username or password, please log in again.
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <form method="post" action="/settings">
+    {% for group in groups %}
+    <div class="card p-6 mb-6">
+      <h2 class="text-base font-semibold text-ink mb-4">{{ group.title }}</h2>
+      <div class="space-y-5">
+        {% for f in group.fields %}
+        <div>
+          <div class="flex items-center justify-between gap-3 mb-1">
+            <label for="f-{{ f.key }}" class="label !mb-0">{{ f.label }}</label>
+            <code>{{ f.env }}</code>
+          </div>
+          <input
+            id="f-{{ f.key }}"
+            name="{{ f.key }}"
+            type="{{ f.type }}"
+            value="{{ f.value }}"
+            placeholder="{{ f.placeholder }}"
+            {% if f.min is not none %}min="{{ f.min }}"{% endif %}
+            {% if f.max is not none %}max="{{ f.max }}"{% endif %}
+            class="input {% if f.overridden %}!border-brand-line bg-brand-soft{% endif %}"
+          >
+          <p class="hint leading-relaxed">{{ f.info }}</p>
+          <p class="text-xs mt-1 {{ 'text-brand-fg' if f.overridden else 'text-ink-faint' }}">
+            {% if f.overridden %}
+              Database override — environment default: <code>{{ f.default or '(empty)' }}</code>. Clear the field and save to revert.
+            {% else %}
+              Using environment default: <code>{{ f.default or '(empty)' }}</code>.
+            {% endif %}
+          </p>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+
+    <div class="card p-6 mb-6">
+      <h2 class="text-base font-semibold text-ink mb-1">Boot-time variables</h2>
+      <p class="text-xs text-ink-faint mb-2">Set in the container environment — not changeable from here.</p>
+      <div class="divide-y divide-line">
+        {% for b in boot_fields %}
+        <div class="py-3 grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-4 items-start">
+          <code>{{ b.env }}</code>
+          <div class="sm:col-span-2">
+            <div class="text-xs text-ink-muted">{{ b.info }}</div>
+            <div class="text-sm text-ink font-mono mt-0.5 break-all">{{ b.value }}</div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="flex flex-col-reverse sm:flex-row sm:items-center justify-between gap-3 pb-4">
+      <button type="submit" class="btn btn-primary w-full sm:w-auto">Save settings</button>
+      <span class="text-xs text-ink-faint">Changes apply immediately and are audited.</span>
+    </div>
+  </form>
+</div>
+{% endblock %}

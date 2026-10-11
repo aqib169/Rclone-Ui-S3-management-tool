@@ -1,0 +1,36 @@
+{% set done = run.status not in ['pending', 'running'] %}
+<div>
+  <p class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+    Status:
+    {% if run.status == 'success' %}
+    <span class="badge badge-ok"><span class="dot bg-ok"></span>success</span>
+    {% elif run.status in ['failed', 'cancelled'] %}
+    <span class="badge badge-danger"><span class="dot bg-danger"></span>{{ run.status }}</span>
+    {% elif run.status == 'running' %}
+    <span class="badge badge-warn"><span class="dot bg-warn animate-pulse"></span>running</span>
+    {% else %}
+    <span class="badge badge-brand"><span class="dot bg-brand"></span>{{ run.status }}</span>
+    {% endif %}
+    <a href="/runs/{{ run.run_id }}/log" class="link text-sm">View log</a>
+    {% if run.status == 'failed' and run.error %}
+    <span class="text-danger-fg text-sm">{{ run.error }}</span>
+    {% endif %}
+    {% if not done %}
+    <button type="button" hx-post="/runs/{{ run.run_id }}/cancel" hx-swap="none"
+            class="btn btn-danger-outline btn-sm">Cancel</button>
+    {% endif %}
+  </p>
+  {% if not done %}
+  {% if progress is not none %}
+  <div class="mt-3">
+    <div class="flex justify-between text-xs text-ink-muted mb-1">
+      <span>Transfer</span><span class="font-mono">{{ progress }}%</span>
+    </div>
+    <div class="h-2 w-full bg-app-raised rounded-full overflow-hidden">
+      <div class="h-full bg-brand rounded-full transition-all duration-500" style="width: {{ progress }}%"></div>
+    </div>
+  </div>
+  {% endif %}
+  <div hx-get="/runs/{{ run.run_id }}/status" hx-trigger="every 2s" hx-swap="innerHTML"></div>
+  {% endif %}
+</div>

@@ -1,0 +1,8 @@
+{% if error %}
+<option value="">Failed to load directories</option>
+{% else %}
+<option value="">(root)</option>
+{% for d in dirs %}
+<option value="{{ d.path }}">{{ d.name }}</option>
+{% endfor %}
+{% endif %}
